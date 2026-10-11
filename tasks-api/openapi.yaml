@@ -1,0 +1,335 @@
+openapi: 3.0.3
+
+info:
+  title: Tasks API
+  version: 1.0.0
+  description: API quản lý task nội bộ.
+  contact:
+    name: API Team
+    email: api@example.vn
+
+servers:
+  - url: http://localhost:5000/v1
+    description: Local Dev Server
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: tasks
+    description: Quản lý task
+
+paths:
+  /tasks:
+    get:
+      tags: [tasks]
+      operationId: listTasks
+      summary: Liệt kê danh sách task
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - $ref: '#/components/parameters/Status'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/TaskPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        'default':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags: [tasks]
+      operationId: createTask
+      summary: Tạo task mới
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: 
+              $ref: '#/components/schemas/TaskInput'
+      responses:
+        '201':
+          description: Tạo thành công
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422': 
+          $ref: '#/components/responses/ValidationError'
+        'default':
+          $ref: '#/components/responses/ServerError'
+
+  /tasks/{taskId}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+    get:
+      tags: [tasks]
+      operationId: getTaskById
+      summary: Lấy chi tiết task theo id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404': 
+          $ref: '#/components/responses/NotFound'
+        'default':
+          $ref: '#/components/responses/ServerError'
+
+    patch:
+      tags: [tasks]
+      operationId: patchTask
+      summary: Cập nhật một phần task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: 
+              $ref: '#/components/schemas/UpdateTaskInput'
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404': 
+          $ref: '#/components/responses/NotFound'
+        '422': 
+          $ref: '#/components/responses/ValidationError'
+        'default':
+          $ref: '#/components/responses/ServerError'
+
+    delete:
+      tags: [tasks]
+      operationId: deleteTask
+      summary: Xoá task
+      responses:
+        '204': 
+          description: Xoá thành công
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404': 
+          $ref: '#/components/responses/NotFound'
+        'default':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema: 
+        type: string
+        format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+    Limit:
+      name: limit
+      in: query
+      schema: 
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 10
+    Offset:
+      name: offset
+      in: query
+      schema: 
+        type: integer
+        minimum: 0
+        default: 0
+      example: 0
+    Status:
+      name: status
+      in: query
+      schema: 
+        type: string
+        enum: [open, done]
+      example: "open"
+
+  responses:
+    BadRequest:
+      description: Dữ liệu yêu cầu không hợp lệ
+      content:
+        application/problem+json:
+          schema: 
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Thiếu thông tin xác thực hoặc token không hợp lệ
+      content:
+        application/problem+json:
+          schema: 
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Không tìm thấy tài nguyên
+      content:
+        application/problem+json:
+          schema: 
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Lỗi logic dữ liệu hoặc validation thất bại
+      content:
+        application/problem+json:
+          schema: 
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: Lỗi máy chủ không xác định
+      content:
+        application/problem+json:
+          schema: 
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      description: Lỗi theo chuẩn RFC 7807/9457 Problem Details
+      required: [title, status]
+      properties:
+        type: 
+          type: string
+          format: uri
+          example: "https://api.example.vn/errors/not-found"
+        title: 
+          type: string
+          example: "Task not found"
+        status: 
+          type: integer
+          example: 404
+        detail: 
+          type: string
+          example: "Không tìm thấy task với ID vừa cung cấp"
+        instance: 
+          type: string
+          example: "/v1/tasks/123e4567-e89b-12d3-a456-426614174000"
+
+    Task:
+      type: object
+      required: [id, title, status]
+      properties:
+        id: 
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        title: 
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Viết OpenAPI Specification"
+        status: 
+          type: string
+          enum: [open, done]
+          example: "open"
+        priority: 
+          type: string
+          enum: [low, normal, high]
+          example: "high"
+        dueDate: 
+          type: string
+          format: date
+          nullable: true
+          example: "2026-10-15"
+        assigneeId: 
+          type: string
+          format: uuid
+          nullable: true
+          example: "987fcdeb-51a2-43d7-9012-345678901234"
+
+    TaskInput:
+      type: object
+      required: [title]
+      properties:
+        title: 
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Viết OpenAPI Specification"
+        status: 
+          type: string
+          enum: [open, done]
+          example: "open"
+        priority: 
+          type: string
+          enum: [low, normal, high]
+          example: "high"
+        dueDate: 
+          type: string
+          format: date
+          nullable: true
+          example: "2026-10-15"
+        assigneeId: 
+          type: string
+          format: uuid
+          nullable: true
+          example: "987fcdeb-51a2-43d7-9012-345678901234"
+
+    UpdateTaskInput:
+      type: object
+      minProperties: 1
+      description: Dữ liệu cập nhật một phần task (PATCH), tất cả các trường đều là tùy chọn
+      properties:
+        title: 
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Viết OpenAPI Specification"
+        status: 
+          type: string
+          enum: [open, done]
+          example: "done"
+        priority: 
+          type: string
+          enum: [low, normal, high]
+          example: "high"
+        dueDate: 
+          type: string
+          format: date
+          nullable: true
+          example: "2026-10-15"
+        assigneeId: 
+          type: string
+          format: uuid
+          nullable: true
+          example: "987fcdeb-51a2-43d7-9012-345678901234"
+
+    TaskPage:
+      type: object
+      properties:
+        items: 
+          type: array
+          items: 
+            $ref: '#/components/schemas/Task'
+        total: 
+          type: integer
+          example: 42
+        limit: 
+          type: integer
+          example: 20
+        offset: 
+          type: integer
+          example: 0
