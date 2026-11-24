@@ -1,0 +1,67 @@
+/learning-analyses:
+  post:
+    tags:
+    - Recommendations
+    summary: Phân tích kết quả học tập và đề xuất chủ đề ưu tiên ôn tập (UC10)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/recommendations.yaml#/CreateLearningAnalysisRequest
+    responses:
+      '201':
+        description: Kết quả phân tích điểm yếu theo chủ đề và gợi ý ôn tập
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/recommendations.yaml#/LearningAnalysisResponse
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '503':
+        $ref: ../common/responses.yaml#/ServiceUnavailableError
+      '504':
+        $ref: ../common/responses.yaml#/GatewayTimeoutError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: createLearningAnalysis
+    description: Phân tích dữ liệu chi tiết theo môn sau consent LEARNING_ANALYSIS phù hợp nguồn. Có thể dùng evidence
+      đã lưu còn quyền; không suy luận từ điểm tổng. Kiểm tra điểm và phạm vi; đối chiếu document_ids đã kiểm tra
+      quyền nguồn, owner, consent và DOCUMENT_ACCESS nếu có. Tách observed_evidence và ai_inference; không tạo nguồn
+      giả. Thiếu căn cứ trả 422; đủ một phần đánh dấu has_sufficient_data=false và data_limitations. Chuyển UC03
+      cần consent KNOWLEDGE_QA riêng.
+/learning-analyses/{analysis_id}:
+  get:
+    tags:
+    - Recommendations
+    summary: Xem lại kết quả phân tích và gợi ý học tập đã tạo
+    parameters:
+    - name: analysis_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    responses:
+      '200':
+        description: Chi tiết gợi ý cải thiện học tập
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/recommendations.yaml#/LearningAnalysisResponse
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '404':
+        $ref: ../common/responses.yaml#/NotFoundError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: getLearningAnalysis
+    description: Lấy phân tích của owner còn consent LEARNING_ANALYSIS; loại nội dung mất quyền sử dụng.

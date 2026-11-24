@@ -1,0 +1,237 @@
+/documents/sync:
+  post:
+    tags:
+    - Documents
+    summary: Đồng bộ và lập chỉ mục vector cho tài liệu học tập từ Portal
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/documents.yaml#/SyncDocumentRequest
+        multipart/form-data:
+          schema:
+            $ref: ../schemas/documents.yaml#/SyncDocumentFileRequest
+    responses:
+      '201':
+        description: Chuẩn hóa và lập chỉ mục tài liệu thành công
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/documents.yaml#/DocumentMetadata
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '200':
+        description: Đồng bộ lại tài liệu đã tồn tại thành công
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/documents.yaml#/DocumentMetadata
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError
+      '503':
+        $ref: ../common/responses.yaml#/ServiceUnavailableError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: syncDocument
+    description: Đồng bộ tài liệu theo yêu cầu sau UC02. Kiểm tra owner, consent, phạm vi môn và quyền nguồn; upsert
+      theo owner + course_id + external_doc_id. Lập chỉ mục khi nội dung thay đổi; tái sử dụng sau khi kiểm tra
+      lại quyền. Nhận văn bản hoặc file hợp lệ, giới hạn dung lượng; không tự tải URL. Chỉ trả 200/201 khi lập chỉ
+      mục thành công; đánh dấu nội dung thiếu, trả 422 DOCUMENT_UNREADABLE nếu không đọc được.
+/documents:
+  get:
+    tags:
+    - Documents
+    summary: Lấy danh sách tài liệu sinh viên có quyền truy cập theo môn học
+    parameters:
+    - name: course_id
+      in: query
+      required: false
+      description: Mã môn học (bỏ trống để lấy tất cả môn được phép truy cập)
+      schema:
+        type: string
+        example: INT3306
+    - name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    - name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    responses:
+      '200':
+        description: Danh sách metadata tài liệu
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: ../schemas/documents.yaml#/DocumentMetadata
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: listDocuments
+    description: Liệt kê tài liệu đã đồng bộ của phiên còn consent. Không đại diện quyền Portal hiện tại; Extension
+      kiểm tra lại nguồn trước khi sử dụng. Phân trang ổn định.
+/documents/search:
+  get:
+    tags:
+    - Documents
+    summary: Tìm kiếm kiến thức theo từ khóa hoặc ngữ nghĩa trong kho tài liệu (UC04)
+    parameters:
+    - name: query
+      in: query
+      required: true
+      description: Từ khóa, chủ đề hoặc câu hỏi cần tìm kiếm
+      schema:
+        type: string
+        example: Đặc trưng của kiến trúc hướng dịch vụ SOA
+        minLength: 1
+    - name: course_id
+      in: query
+      required: false
+      description: Lọc theo mã môn trong phạm vi document_ids hoặc document_id; bỏ trống để tìm nhiều môn đã được
+        kiểm tra quyền.
+      schema:
+        type: string
+        example: INT3306
+    - name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
+        default: 5
+    - name: document_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+      description: Giới hạn vào một tài liệu được phép; không gửi cùng document_ids.
+    - name: document_ids
+      in: query
+      required: false
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+          format: uuid
+        minItems: 1
+        uniqueItems: true
+        description: ID tài liệu đã kiểm tra quyền nguồn. Backend kiểm tra owner, consent và DOCUMENT_ACCESS; ID
+          không chứng minh quyền Portal.
+      description: Phạm vi tài liệu vừa được kiểm tra quyền nguồn. Với tìm kiếm phải cung cấp document_ids hoặc
+        document_id; không tìm toàn bộ cache mặc định.
+    responses:
+      '200':
+        description: Danh sách đoạn nội dung liên quan kèm nguồn tài liệu
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: ../schemas/documents.yaml#/SearchResultItem
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: searchDocuments
+    description: Tìm từ khóa hoặc ngữ nghĩa trong document_id hoặc document_ids đã kiểm tra quyền nguồn (không gửi
+      cả hai). Kiểm tra owner, consent KNOWLEDGE_SEARCH, DOCUMENT_ACCESS và phạm vi môn. Nhóm theo môn/tài liệu;
+      không có kết quả trả 200 []; thiếu phạm vi hoặc chỉ mục trả 422. relevance_score là điểm xếp hạng, không phải
+      xác suất.
+/documents/summarize:
+  post:
+    tags:
+    - Documents
+    summary: Tóm tắt tài liệu, chương hoặc chủ đề học tập (UC05)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/documents.yaml#/SummarizeRequest
+    responses:
+      '200':
+        description: Bản tóm tắt bám sát nội dung tài liệu nguồn
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/documents.yaml#/SummarizeResponse
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError
+      '504':
+        $ref: ../common/responses.yaml#/GatewayTimeoutError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '404':
+        $ref: ../common/responses.yaml#/NotFoundError
+      '503':
+        $ref: ../common/responses.yaml#/ServiceUnavailableError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: summarizeDocument
+    description: Tóm tắt một tài liệu hoặc chủ đề từ nhiều tài liệu. Kiểm tra quyền nguồn, owner, consent DOCUMENT_SUMMARY
+      và DOCUMENT_ACCESS. Lưu vào phiên cùng môn hoặc MULTI_COURSE_SUMMARY; tạo phiên nếu thiếu, không dùng GENERAL.
+      Trích dẫn nguồn thật; đánh dấu nội dung thiếu và coverage_note. Không đọc được trả 422 DOCUMENT_UNREADABLE.
+/documents/{document_id}/chunks/{chunk_id}:
+  get:
+    tags:
+    - Documents
+    operationId: getDocumentChunk
+    summary: Xem chi tiết kết quả tìm kiếm (UC04)
+    description: Xem chunk thuộc tài liệu sau kiểm tra quyền nguồn, owner, consent KNOWLEDGE_SEARCH và DOCUMENT_ACCESS.
+    parameters:
+    - name: document_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: chunk_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    responses:
+      '200':
+        description: Chi tiết đoạn tài liệu
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/documents.yaml#/DocumentChunkDetail
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '404':
+        $ref: ../common/responses.yaml#/NotFoundError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError

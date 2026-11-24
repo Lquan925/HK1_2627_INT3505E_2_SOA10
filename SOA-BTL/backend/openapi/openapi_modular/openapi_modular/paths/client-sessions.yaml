@@ -1,0 +1,33 @@
+/client-sessions:
+  post:
+    tags:
+    - ClientSessions
+    operationId: createClientSession
+    summary: Khởi tạo phiên sử dụng Extension không cần đăng nhập
+    description: Cấp token phiên ngẫu nhiên có thời hạn, lưu hash tại Backend. Extension lưu token an toàn; không
+      nhận thông tin xác thực Portal. Giới hạn tần suất; hết hạn tạo phiên mới, không khôi phục dữ liệu cũ.
+    security: []
+    responses:
+      '201':
+        description: Tạo phiên thành công
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/client-sessions.yaml#/ClientSessionResponse
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+      '503':
+        $ref: ../common/responses.yaml#/ServiceUnavailableError
+/client-sessions/current:
+  delete:
+    tags:
+    - ClientSessions
+    operationId: revokeClientSession
+    summary: Thu hồi phiên Extension hiện tại
+    description: Thu hồi token và dừng truy xuất. Khi logout hoặc đổi tài khoản, Extension xóa token cục bộ kể cả
+      khi API lỗi. Xóa dữ liệu theo chính sách lưu giữ.
+    responses:
+      '204':
+        description: Phiên đã được thu hồi, không có response body.
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError

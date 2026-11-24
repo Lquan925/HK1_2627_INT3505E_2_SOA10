@@ -1,0 +1,156 @@
+CreateLearningAnalysisRequest:
+  type: object
+  required:
+  - course_id
+  properties:
+    course_id:
+      type: string
+      example: INT3306
+      minLength: 1
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    focus_topic:
+      type: string
+      nullable: true
+      description: Chủ đề cụ thể muốn tập trung phân tích (UC10 - Luồng A1)
+      example: Thiết kế OpenAPI & REST
+    evidence:
+      type: array
+      items:
+        $ref: recommendations.yaml#/LearningEvidenceItem
+      minItems: 1
+    document_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+      minItems: 1
+      uniqueItems: true
+      description: ID tài liệu đã kiểm tra quyền nguồn. Backend kiểm tra owner, consent và DOCUMENT_ACCESS; ID không
+        chứng minh quyền Portal. Không gửi nếu không có consent COURSE_DOCUMENTS/LEARNING_ANALYSIS hoặc không có
+        tài liệu phù hợp.
+LearningRecommendationItem:
+  type: object
+  properties:
+    priority_rank:
+      type: integer
+      example: 1
+      minimum: 1
+    topic_id:
+      type: string
+      format: uuid
+    topic_name:
+      type: string
+      example: Nguyên tắc Stateless và HTTP Status Codes
+    weakness_reason:
+      type: string
+      example: Trả lời sai 2/3 câu hỏi liên quan đến mã lỗi 422 và cơ chế xác thực Bearer Token.
+    study_advice:
+      type: string
+      example: Ôn lại cách phân biệt lỗi dữ liệu đầu vào (400/422) với lỗi phân quyền (401/403).
+    related_document_id:
+      type: string
+      format: uuid
+      nullable: true
+    related_document_title:
+      type: string
+      nullable: true
+      example: Bài giảng Chương 3 - Thiết kế RESTful API.pdf
+    observed_evidence:
+      type: array
+      items:
+        type: string
+      minItems: 1
+    ai_inference:
+      type: string
+    related_document_note:
+      type: string
+      nullable: true
+  required:
+  - priority_rank
+  - topic_id
+  - topic_name
+  - weakness_reason
+  - study_advice
+  - related_document_id
+  - related_document_title
+  - observed_evidence
+  - ai_inference
+  - related_document_note
+LearningAnalysisResponse:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    course_id:
+      type: string
+      example: INT3306
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    has_sufficient_data:
+      type: boolean
+      description: False nếu chỉ đủ căn cứ cho một phần phạm vi yêu cầu; không có căn cứ để gợi ý thì trả 422 thay
+        vì tạo phân tích.
+      example: true
+    recommendations:
+      type: array
+      items:
+        $ref: recommendations.yaml#/LearningRecommendationItem
+    created_at:
+      type: string
+      format: date-time
+    focus_topic:
+      type: string
+      nullable: true
+    data_limitations:
+      type: string
+      nullable: true
+  required:
+  - id
+  - course_id
+  - has_sufficient_data
+  - recommendations
+  - created_at
+  - focus_topic
+  - data_limitations
+LearningEvidenceItem:
+  type: object
+  required:
+  - external_quiz_id
+  - question_number
+  - question_text
+  - student_answer
+  - official_points
+  - max_points
+  properties:
+    external_quiz_id:
+      type: string
+      minLength: 1
+    question_number:
+      type: integer
+      minimum: 1
+    topic_name:
+      type: string
+      minLength: 1
+    question_text:
+      type: string
+      minLength: 1
+    student_answer:
+      type: string
+    official_points:
+      type: number
+      minimum: 0
+      description: Điểm câu quan sát được từ Portal hoặc do người dùng cung cấp; không dùng điểm tổng quiz để suy
+        luận chủ đề.
+    max_points:
+      type: number
+      minimum: 0
+      exclusiveMinimum: true
+    portal_attempt_id:
+      type: string
+      nullable: true
+    data_source:
+      type: string
+      enum:
+      - PORTAL
+      - MANUAL
+      default: PORTAL

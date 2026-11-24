@@ -1,0 +1,172 @@
+/grade-goals:
+  get:
+    tags:
+    - GradePlanning
+    summary: Lấy danh sách mục tiêu điểm số đã thiết lập
+    parameters:
+    - name: course_id
+      in: query
+      required: false
+      schema:
+        type: string
+        example: INT3306
+    - name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    - name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    responses:
+      '200':
+        description: Danh sách mục tiêu điểm số
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: ../schemas/grade-planning.yaml#/GradeGoalResponse
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: listGradeGoals
+    description: >-
+      Liệt kê mục tiêu điểm của owner, phân trang ổn định. Mục tiêu có data_source=PORTAL chỉ được
+      trả khi còn consent GRADE_BOOK/GRADE_PLANNING đúng môn; loại mục tiêu đã mất consent khỏi danh sách.
+  post:
+    tags:
+    - GradePlanning
+    summary: Thiết lập mục tiêu điểm số cho môn học hoặc nhóm bài quiz (UC08)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/grade-planning.yaml#/CreateGradeGoalRequest
+    responses:
+      '201':
+        description: Lưu mục tiêu điểm số thành công
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/grade-planning.yaml#/GradeGoalResponse
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '409':
+        $ref: ../common/responses.yaml#/ConflictError
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: createGradeGoal
+    description: >-
+      Tạo mục tiêu theo môn hoặc nhóm quiz. QUIZ_AVERAGE cần nhóm xác định; COURSE_FINAL không dùng quiz_group_id.
+      Chỉ hỗ trợ grading_rule=WEIGHTED_AVERAGE; quy tắc khác trả 422 UNSUPPORTED_GRADING_RULE.
+      Trả 422 nếu thiếu dữ liệu nghiệp vụ, phạm vi không hợp lệ hoặc target_score vượt max_scale.
+      Trả 409 khi trùng mục tiêu. data_source ghi nguồn thang điểm và quy tắc của mục tiêu, được lưu cùng mục tiêu.
+      PORTAL cần consent GRADE_BOOK/GRADE_PLANNING đúng môn trước khi đọc, lưu hoặc trả dữ liệu; thiếu quyền trả 403.
+      MANUAL không cần consent Portal, không được dùng để gắn lại nhãn dữ liệu đã lấy từ Portal.
+/grade-goals/{goal_id}:
+  patch:
+    tags:
+    - GradePlanning
+    summary: Cập nhật mức điểm mục tiêu đã thiết lập (UC08 - Luồng A1)
+    parameters:
+    - name: goal_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/grade-planning.yaml#/UpdateGradeGoalRequest
+    responses:
+      '200':
+        description: Cập nhật mục tiêu điểm thành công
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/grade-planning.yaml#/GradeGoalResponse
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '404':
+        $ref: ../common/responses.yaml#/NotFoundError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError
+    operationId: updateGradeGoal
+    description: Cập nhật điểm mục tiêu của owner trong thang điểm đã lưu; không đổi phạm vi hoặc công thức.
+      Không đổi data_source; mục tiêu PORTAL cần consent GRADE_BOOK/GRADE_PLANNING đúng môn, thiếu quyền trả 403.
+      Trả 422 nếu target_score vượt max_scale đã lưu.
+/grade-goals/{goal_id}/calculate:
+  post:
+    tags:
+    - GradePlanning
+    summary: Dự tính mức điểm cần đạt ở các bài quiz còn lại (UC09 - Stateless)
+    operationId: calculateGrade
+    description: >-
+      Chỉ dùng mục tiêu thuộc phiên hiện tại và công thức WEIGHTED_AVERAGE đã lưu; tính theo công thức
+      trong GradeCalculationResponse, không dùng LLM. Chấp nhận các thành phần trộn PORTAL và MANUAL.
+      Nếu mục tiêu hoặc bất kỳ thành phần nào có data_source=PORTAL, cần consent GRADE_BOOK/GRADE_PLANNING
+      đúng môn của mục tiêu trước khi xử lý và kiểm tra lại trước khi trả kết quả; thiếu hoặc đã thu hồi quyền trả 403.
+      Nguồn dữ liệu do Extension khai báo và giữ nguyên; MANUAL không chứng minh quyền với dữ liệu Portal.
+      Tổng weight_percent phải bằng 100, sai trả 422 INVALID_GRADE_WEIGHTS; không tự chuẩn hóa trọng số.
+      Trả 422 INSUFFICIENT_GRADE_DATA nếu bài đã hoàn thành thiếu điểm; điểm ngoài thang trả 422 INVALID_GRADE_SCORE.
+      Bài chưa hoàn thành chỉ nhận earned_score bị bỏ trống hoặc null, nếu gửi điểm trả 422 INVALID_GRADE_SCORE.
+      Quy tắc chưa hỗ trợ trả 422 UNSUPPORTED_GRADING_RULE. Payload sai kiểu hoặc thiếu trường bắt buộc
+      vô điều kiện trả 400; thiếu/null earned_score khi is_completed=true là lỗi nghiệp vụ 422 INSUFFICIENT_GRADE_DATA.
+      Không lưu danh sách điểm hoặc kết quả tính vào DB.
+    parameters:
+    - name: goal_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/grade-planning.yaml#/CalculateGradeRequest
+    responses:
+      '200':
+        description: Kết quả dự tính điểm số và đánh giá tính khả thi
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/grade-planning.yaml#/GradeCalculationResponse
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '404':
+        $ref: ../common/responses.yaml#/NotFoundError
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError

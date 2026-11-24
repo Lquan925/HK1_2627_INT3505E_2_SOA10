@@ -1,0 +1,110 @@
+/quiz-reviews:
+  post:
+    tags:
+    - QuizReviews
+    summary: Yêu cầu AI đánh giá tham khảo bài Quiz đã chấm (UC06)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/quiz-reviews.yaml#/CreateQuizReviewRequest
+    responses:
+      '201':
+        description: Kết quả phân tích từng câu hỏi và đối chiếu với điểm chính thức
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/quiz-reviews.yaml#/QuizReviewResponse
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '504':
+        $ref: ../common/responses.yaml#/GatewayTimeoutError
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError
+      '503':
+        $ref: ../common/responses.yaml#/ServiceUnavailableError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: createQuizReview
+    description: Đánh giá quiz đã chấm (GRADED) sau kiểm tra quyền xem lại và consent QUIZ_REVIEW theo nguồn. Kiểm
+      tra câu hỏi duy nhất, điểm và thang điểm. Trắc nghiệm dùng đáp án/quy tắc chấm; tự luận dùng rubric. Thiếu
+      tiêu chí chỉ phản hồi định tính có căn cứ, điểm AI và chênh lệch để null. Chỉ tính tổng khi đủ câu; không
+      so sánh khác thang điểm. Thiếu căn cứ trả 422. Phân biệt nguồn MANUAL; không sửa điểm chính thức.
+/quiz-reviews/{review_id}:
+  get:
+    tags:
+    - QuizReviews
+    summary: Xem lại chi tiết một lượt AI đánh giá Quiz đã lưu
+    parameters:
+    - name: review_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    responses:
+      '200':
+        description: Chi tiết kết quả đánh giá tham khảo
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/quiz-reviews.yaml#/QuizReviewResponse
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '404':
+        $ref: ../common/responses.yaml#/NotFoundError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: getQuizReview
+    description: Lấy kết quả đánh giá của owner còn consent QUIZ_REVIEW.
+/quiz-reviews/{review_id}/comment-suggestions:
+  post:
+    tags:
+    - QuizReviews
+    summary: Tạo gợi ý nội dung Comment lịch sự để sinh viên tự gửi giảng viên (UC07 - Stateless)
+    operationId: createCommentSuggestion
+    description: Chỉ sử dụng review của phiên hiện tại. Kiểm tra consent COMMENT_SUGGESTION
+      cho QUIZ_SUBMISSIONS và cho GRADE_BOOK nếu dùng điểm từ grade book. Kiểm tra lại
+      consent trước khi trả gợi ý. Kết quả được sinh tức thời. Trả 422 nếu question_numbers
+      chứa số câu không thuộc review.
+    parameters:
+    - name: review_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/quiz-reviews.yaml#/CommentSuggestionRequest
+    responses:
+      '200':
+        description: Nội dung comment gợi ý được sinh tức thời (không lưu DB)
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/quiz-reviews.yaml#/CommentSuggestionResponse
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '404':
+        $ref: ../common/responses.yaml#/NotFoundError
+      '504':
+        $ref: ../common/responses.yaml#/GatewayTimeoutError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError

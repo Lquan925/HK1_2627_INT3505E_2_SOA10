@@ -1,0 +1,336 @@
+SyncDocumentRequest:
+  type: object
+  required:
+  - course_id
+  - external_doc_id
+  - title
+  - purpose
+  properties:
+    course_id:
+      type: string
+      example: INT3306
+      minLength: 1
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    external_doc_id:
+      type: string
+      example: portal_doc_1024
+      minLength: 1
+      description: Mã tham chiếu Portal; ánh xạ portal_document_id. Không phải UUID nội bộ.
+    title:
+      type: string
+      example: Bài giảng Chương 3 - Thiết kế RESTful API.pdf
+      minLength: 1
+    raw_text:
+      type: string
+      example: Nội dung văn bản đã trích xuất từ tài liệu...
+      minLength: 1
+      description: Văn bản Extension đã trích xuất từ tài liệu được phép; không chứa HTML script hoặc thông tin
+        xác thực.
+    is_partial_content:
+      type: boolean
+      default: false
+    source_url:
+      type: string
+      format: uri
+      nullable: true
+      description: URL nguồn đã loại thông tin nhạy cảm; chỉ tham chiếu, Backend không tự tải.
+    purpose:
+      type: string
+      enum:
+      - KNOWLEDGE_QA
+      - KNOWLEDGE_SEARCH
+      - DOCUMENT_SUMMARY
+      - LEARNING_ANALYSIS
+    source_revision:
+      type: string
+      nullable: true
+      description: Phiên bản/ETag/hash nội dung nếu Portal cung cấp; không dùng làm bằng chứng quyền truy cập.
+    sections:
+      type: array
+      items:
+        type: object
+        properties:
+          text:
+            type: string
+            minLength: 1
+          location_label:
+            type: string
+            nullable: true
+            description: Trang/slide/chương nếu xác định được.
+        required:
+        - text
+      minItems: 1
+      description: Tùy chọn thay cho raw_text; giữ vị trí nguồn để tạo citation.
+  oneOf:
+  - required:
+    - raw_text
+  - required:
+    - sections
+  example:
+    course_id: INT3306
+    external_doc_id: portal_doc_1024
+    title: Bài giảng RESTful API
+    purpose: KNOWLEDGE_QA
+    sections:
+    - text: REST là phong cách kiến trúc phần mềm.
+      location_label: Slide 3
+DocumentMetadata:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    course_id:
+      type: string
+      example: INT3306
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    external_doc_id:
+      type: string
+      example: portal_doc_1024
+      description: Mã tham chiếu Portal; ánh xạ portal_document_id. Không phải UUID nội bộ.
+    title:
+      type: string
+      example: Bài giảng Chương 3 - Thiết kế RESTful API.pdf
+    index_status:
+      type: string
+      enum:
+      - PENDING
+      - INDEXED
+      - FAILED
+      example: INDEXED
+    created_at:
+      type: string
+      format: date-time
+    is_partial_content:
+      type: boolean
+    source_url:
+      type: string
+      format: uri
+      nullable: true
+    source_revision:
+      type: string
+      nullable: true
+  required:
+  - id
+  - course_id
+  - external_doc_id
+  - title
+  - index_status
+  - created_at
+  - is_partial_content
+  - source_url
+  - source_revision
+SearchResultItem:
+  type: object
+  properties:
+    chunk_id:
+      type: string
+      format: uuid
+    document_id:
+      type: string
+      format: uuid
+    document_title:
+      type: string
+      example: Bài giảng Chương 3 - Thiết kế RESTful API.pdf
+    course_id:
+      type: string
+      example: INT3306
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    snippet:
+      type: string
+      example: RESTful API tuân thủ 6 ràng buộc kiến trúc gồm Client-Server, Stateless...
+    location_label:
+      type: string
+      nullable: true
+      example: Trang 12
+    relevance_score:
+      type: number
+      format: float
+      example: 0.91
+    source_url:
+      type: string
+      format: uri
+      nullable: true
+  required:
+  - chunk_id
+  - document_id
+  - document_title
+  - course_id
+  - snippet
+  - location_label
+  - relevance_score
+  - source_url
+SummarizeRequest:
+  type: object
+  properties:
+    document_id:
+      type: string
+      format: uuid
+      description: Tóm tắt một tài liệu, không gửi cùng document_ids.
+    course_id:
+      type: string
+      nullable: true
+      example: INT3306
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    topic:
+      type: string
+      description: Chỉ định chương hoặc chủ đề cần tóm tắt (có thể tổng hợp từ nhiều tài liệu)
+      example: Nguyên tắc thiết kế Stateless
+      minLength: 1
+    detail_level:
+      type: string
+      enum:
+      - SHORT
+      - DETAILED
+      default: SHORT
+    session_id:
+      type: string
+      format: uuid
+      nullable: true
+    document_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+      minItems: 1
+      uniqueItems: true
+      description: ID tài liệu đã kiểm tra quyền nguồn. Backend kiểm tra owner, consent và DOCUMENT_ACCESS; ID không
+        chứng minh quyền Portal.
+  oneOf:
+  - required:
+    - document_id
+    not:
+      required:
+      - document_ids
+      properties:
+        document_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+  - required:
+    - topic
+    - document_ids
+    not:
+      required:
+      - document_id
+      properties:
+        document_id:
+          type: string
+          format: uuid
+  example:
+    topic: Stateless
+    document_ids:
+    - 550e8400-e29b-41d4-a716-446655440000
+    detail_level: SHORT
+SummarizeResponse:
+  type: object
+  description: >-
+    Lưu summary thành content của message ASSISTANT/SUMMARY; lưu citations, is_partial_content và coverage_note
+    cùng message. API lịch sử trả lại các giá trị này để UI giữ cảnh báo thiếu nội dung khi mở lại hội thoại.
+  properties:
+    summary:
+      type: string
+    is_partial_content:
+      type: boolean
+      description: Đánh dấu true nếu chỉ trích xuất được một phần tài liệu (UC05 - Luồng E2)
+      example: false
+    sources:
+      type: array
+      items:
+        type: string
+      example:
+      - Bài giảng Chương 3 - Thiết kế RESTful API.pdf
+    session_id:
+      type: string
+      format: uuid
+    message_id:
+      type: string
+      format: uuid
+    coverage_note:
+      type: string
+      minLength: 1
+      description: Phạm vi nội dung đã tóm tắt và phần còn thiếu nếu có; luôn lưu cùng message SUMMARY.
+    citations:
+      type: array
+      items:
+        $ref: chat.yaml#/ChatCitation
+  required:
+  - summary
+  - is_partial_content
+  - sources
+  - session_id
+  - message_id
+  - coverage_note
+  - citations
+DocumentChunkDetail:
+  type: object
+  required:
+  - document_id
+  - chunk_id
+  - content
+  - document_title
+  - location_label
+  - source_url
+  properties:
+    document_id:
+      type: string
+      format: uuid
+    chunk_id:
+      type: string
+      format: uuid
+    content:
+      type: string
+    document_title:
+      type: string
+    location_label:
+      type: string
+      nullable: true
+    source_url:
+      type: string
+      format: uri
+      nullable: true
+SyncDocumentFileRequest:
+  type: object
+  properties:
+    course_id:
+      type: string
+      example: INT3306
+      minLength: 1
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    external_doc_id:
+      type: string
+      example: portal_doc_1024
+      minLength: 1
+      description: Mã tham chiếu Portal; ánh xạ portal_document_id. Không phải UUID nội bộ.
+    title:
+      type: string
+      example: Bài giảng Chương 3 - Thiết kế RESTful API.pdf
+      minLength: 1
+    source_url:
+      type: string
+      format: uri
+      nullable: true
+      description: URL nguồn đã loại thông tin nhạy cảm; chỉ tham chiếu, Backend không tự tải.
+    purpose:
+      type: string
+      enum:
+      - KNOWLEDGE_QA
+      - KNOWLEDGE_SEARCH
+      - DOCUMENT_SUMMARY
+      - LEARNING_ANALYSIS
+    source_revision:
+      type: string
+      nullable: true
+      description: Phiên bản/ETag/hash nội dung nếu Portal cung cấp; không dùng làm bằng chứng quyền truy cập.
+    file:
+      type: string
+      format: binary
+      description: File tài liệu được Extension lấy từ module Portal hợp lệ; Backend trích xuất nội dung. Không
+        gửi URL để Backend tự tải.
+  required:
+  - course_id
+  - external_doc_id
+  - title
+  - purpose
+  - file

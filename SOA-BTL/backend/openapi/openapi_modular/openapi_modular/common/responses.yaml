@@ -1,0 +1,64 @@
+UnauthorizedError:
+  description: Thiếu, sai, hết hạn hoặc bị thu hồi X-Session-Token.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/ErrorResponse
+ForbiddenError:
+  description: Không đủ consent theo mục đích/phạm vi hoặc không có quyền với tài nguyên. Không tiết lộ dữ liệu
+    của phiên khác.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/ErrorResponse
+BadRequestError:
+  description: Dữ liệu đầu vào sai định dạng hoặc vi phạm điều kiện ràng buộc
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/ErrorResponse
+NotFoundError:
+  description: Không tìm thấy tài nguyên yêu cầu
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/ErrorResponse
+UnprocessableEntityError:
+  description: Dữ liệu đúng cấu trúc nhưng thiếu hoặc không hợp lệ về nghiệp vụ (DOCUMENT_SCOPE_REQUIRED, DOCUMENT_NOT_INDEXED,
+    DOCUMENT_UNREADABLE, INSUFFICIENT_LEARNING_DATA, INSUFFICIENT_GRADE_DATA, INVALID_GRADE_WEIGHTS,
+    INVALID_GRADE_SCORE hoặc UNSUPPORTED_GRADING_RULE). Với tính điểm, thiếu/null earned_score của bài đã hoàn thành
+    cũng là lỗi nghiệp vụ 422 dù được thể hiện bằng ràng buộc có điều kiện trong schema.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/ErrorResponse
+GatewayTimeoutError:
+  description: Dịch vụ AI bên ngoài phản hồi chậm hoặc vượt quá thời gian chờ
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/ErrorResponse
+ConflictError:
+  description: Xung đột tài nguyên hoặc trạng thái hiện tại
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/ErrorResponse
+ServiceUnavailableError:
+  description: Dịch vụ phụ thuộc tạm thời không khả dụng
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/ErrorResponse
+RateLimitError:
+  description: Vượt giới hạn tạo phiên hoặc gửi yêu cầu; có thể thử lại sau.
+  content:
+    application/json:
+      schema:
+        $ref: ../schemas/common.yaml#/ErrorResponse
+  headers:
+    Retry-After:
+      description: Số giây chờ nếu server cung cấp.
+      schema:
+        type: integer
+        minimum: 0

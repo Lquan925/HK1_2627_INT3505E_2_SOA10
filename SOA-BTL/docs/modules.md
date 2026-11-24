@@ -19,7 +19,7 @@ Các đường dẫn backend ở trên tính từ `backend/src/student_assistant
 
 ## Thứ tự phối hợp
 
-1. Nhóm chốt request/response trong `backend/openapi/student_assistant.yaml`, message trong `contracts/extension-messages/`, và cơ chế xác thực trước khi nối UI.
+1. Nhóm chốt request/response trong [OpenAPI](../backend/openapi/openapi_modular/openapi_modular/openapi.yaml), message trong `contracts/extension-messages/`, và cơ chế xác thực trước khi nối UI. Xem [hướng dẫn bundle/lint](../backend/openapi/openapi_modular/openapi_modular/README.md).
 2. Document và Chat chốt chunk, metadata nguồn, chiều embedding và bộ lọc người dùng/môn; dùng cùng embedding model.
 3. Quiz Review bàn giao định dạng kết quả có câu hỏi, rubric, điểm chính thức, nhận xét tham khảo và căn cứ cho Comment/Recommendation.
 4. Grade Planning chốt thang điểm, trọng số, cách biểu diễn bài chưa chấm và mục tiêu bất khả thi.

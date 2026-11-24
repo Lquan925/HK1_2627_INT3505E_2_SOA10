@@ -1,0 +1,17 @@
+ErrorResponse:
+  type: object
+  required:
+  - error_code
+  - message
+  properties:
+    error_code:
+      type: string
+      example: INSUFFICIENT_GRADE_DATA
+    message:
+      type: string
+      example: Thiếu trọng số hoặc điểm của các bài quiz thành phần để thực hiện dự tính.
+    details:
+      type: object
+      nullable: true
+      description: Thông tin bổ sung, ví dụ missing_fields, invalid_fields hoặc scope; không chứa token hay dữ liệu
+        riêng tư không cần thiết.
