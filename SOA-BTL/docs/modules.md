@@ -1,21 +1,41 @@
-# Bảng nhận module cho nhóm
+# Bảng phân công công việc AI Student Assistant
 
-Điền tên người phụ trách vào bảng khi chia việc. Một người có thể nhận nhiều module; mỗi module nghiệp vụ nên có một người chịu trách nhiệm xuyên suốt API → service → repository và phối hợp UI tương ứng.
-
-| Module | Phạm vi/file chính | Đầu ra cần bàn giao | Phụ trách |
+| Thành viên | Vai trò | Phạm vi phụ trách | Tệp và đầu ra bàn giao |
 | --- | --- | --- | --- |
-| Extension nền tảng (UC01–02) | `extension/src/sidebar/components/`, `content/`, `background/`, `shared/` | Mở/đóng sidebar, adapter Portal, consent, message và API client | Chưa phân công |
-| Gateway & bảo mật | `modules/auth/api.py`, `shared/validation.py`, `modules/auth/repository.py`, `modules/auth/models.py` | Danh tính ứng dụng, kiểm tra quyền/đầu vào, lỗi API thống nhất | Chưa phân công |
-| RAG / Chat (UC03–04) | `modules/chat/api.py`, `modules/chat/service.py`, `modules/chat/repository.py`, `modules/documents/vector_repository.py`, `modules/chat/models.py`, UI `features/chat/` | Hỏi đáp/tìm kiếm theo người dùng và môn, lịch sử, trích dẫn nguồn | Chưa phân công |
-| Document (UC02,04,05) | `modules/documents/api.py`, `modules/documents/service.py`, `modules/documents/repository.py`, `modules/documents/models.py`, UI `features/documents/` | Nhập, trích xuất, chia đoạn, embedding/lập chỉ mục, tóm tắt | Chưa phân công |
-| Quiz Review (UC06) | `modules/quiz_review/api.py`, `modules/quiz_review/service.py`, `modules/quiz_review/repository.py`, `modules/quiz_review/models.py`, UI `features/quiz-review/` | Đối chiếu đáp án/rubric, phân tích chênh lệch, lưu kết quả tham khảo | Chưa phân công |
-| Grade Planning (UC08–09) | `modules/grade_planning/api.py`, `modules/grade_planning/service.py`, `modules/grade_planning/repository.py`, `modules/grade_planning/models.py`, UI `features/grade-planning/` | Lưu mục tiêu, tính điểm còn thiếu và tính khả thi từ trọng số thực | Chưa phân công |
-| Comment Suggestion (UC07) | `modules/comments/api.py`, `modules/comments/service.py`, UI `features/comments/` | Tạo/viết lại bản nháp có căn cứ từ review; sửa/sao chép, sinh viên tự gửi | Chưa phân công |
-| Learning Recommendation (UC10) | `modules/recommendations/api.py`, `modules/recommendations/service.py`, UI `features/recommendations/` | Chủ đề ưu tiên ôn từ lỗi chi tiết và nguồn tài liệu; báo thiếu dữ liệu | Chưa phân công |
-| AI Integration | `integrations/llm.py`, `integrations/embeddings.py` | Interface provider dùng chung, timeout/retry và lỗi; API key ở backend | Chưa phân công |
-| Database & hạ tầng | `extensions.py`, `migrations/`, `infrastructure/` | PostgreSQL + pgvector, migration, hướng dẫn môi trường chạy | Chưa phân công |
+| **Quân** | Trưởng nhóm | Điều phối và theo dõi tiến độ chung, rà soát kiến trúc, thống nhất hợp đồng API và thiết kế dữ liệu, tổng hợp và kiểm tra bài nộp. | Đặc tả OpenAPI tổng hợp (`openapi.yaml`, `common/`), tài liệu `docs/architecture.md` và bản bàn giao chung. |
+| **Nam** | Viết đặc tả API · Người 1 | Dữ liệu nền và tài liệu · **Consents, Documents** · UC02, UC04, UC05 · **6 endpoint**. | Tệp `consents.yaml` và `documents.yaml` trong `paths/` và `schemas/`. |
+| **Hưng** | Viết đặc tả API · Người 2; phụ trách slide và backlog | Hỏi đáp RAG và ôn tập · **Chat, Recommendations** · UC03, UC10 · **6 endpoint**. Soạn slide về thiết kế và các đánh đổi, cập nhật backlog theo tiến độ của nhóm. | `chat.yaml` và `recommendations.yaml` trong `paths/` và `schemas/`, [slide thuyết trình](AI_Student_Assistant_redesign.pptx) và [backlog](backlog.md). |
+| **Tấn** | Viết đặc tả API · Người 3 | Đánh giá quiz và điểm số · **QuizReviews, GradePlanning** · UC06, UC07, UC08, UC09 · **7 endpoint**. | Tệp `quiz-reviews.yaml` và `grade-planning.yaml` trong `paths/` và `schemas/`. |
+| **Kiên** | Cơ sở dữ liệu và ERD | Thiết kế schema PostgreSQL, xác định bảng, khóa chính, khóa ngoại và quan hệ giữa các thực thể, chuẩn bị migration và vẽ ERD. | `backend/migrations/`, `infrastructure/postgres/`, [mã nguồn ERD](../ai-student-assistant-extension-erd-updated.dot) và [sơ đồ ERD](../ai-student-assistant-extension-erd-updated.svg). |
 
-Các đường dẫn backend ở trên tính từ `backend/src/student_assistant/`; đường dẫn UI tính từ `extension/src/sidebar/`.
+Các tệp OpenAPI nằm cùng thư mục với [đặc tả chính](../backend/openapi/openapi_modular/openapi_modular/openapi.yaml). Danh sách dưới đây bám theo phạm vi 19 endpoint trong ảnh phân công.
+
+## Phạm vi viết đặc tả API
+
+### Nam · Người 1
+
+- `GET /consents`, `PUT /consents`
+- `POST /documents/sync`, `GET /documents`
+- `GET /documents/search`, `POST /documents/summarize`
+
+Trọng tâm gồm cơ chế opt-in/opt-out, trạng thái lập chỉ mục vector, mức tóm tắt `SHORT` và `DETAILED`, cùng cờ báo thiếu nội dung `is_partial_content`.
+
+### Hưng · Người 2
+
+- `GET /chat/sessions`, `POST /chat/sessions`
+- `GET /chat/sessions/{session_id}/messages`, `POST /chat/sessions/{session_id}/messages`
+- `POST /learning-analyses`, `GET /learning-analyses/{analysis_id}`
+
+Trọng tâm gồm ngữ cảnh hội thoại theo môn học, mảng trích dẫn nguồn `ChatCitation` và hai cờ `has_external_knowledge`, `has_sufficient_data`.
+
+### Tấn · Người 3
+
+- `POST /quiz-reviews`, `GET /quiz-reviews/{review_id}`
+- `POST /quiz-reviews/{review_id}/comment-suggestions` (stateless)
+- `GET /grade-goals`, `POST /grade-goals`, `PATCH /grade-goals/{goal_id}`
+- `POST /grade-goals/{goal_id}/calculate` (stateless)
+
+Trọng tâm gồm đánh giá câu trắc nghiệm và tự luận theo rubric, sinh gợi ý bình luận theo văn phong, kiểm tra thang điểm và trọng số từng thành phần (`components`).
 
 ## Thứ tự phối hợp
 
@@ -23,7 +43,7 @@ Các đường dẫn backend ở trên tính từ `backend/src/student_assistant
 2. Document và Chat chốt chunk, metadata nguồn, chiều embedding và bộ lọc người dùng/môn; dùng cùng embedding model.
 3. Quiz Review bàn giao định dạng kết quả có câu hỏi, rubric, điểm chính thức, nhận xét tham khảo và căn cứ cho Comment/Recommendation.
 4. Grade Planning chốt thang điểm, trọng số, cách biểu diễn bài chưa chấm và mục tiêu bất khả thi.
-5. Mỗi người triển khai trong phần mình nhận; thay đổi `factory.py`, đăng ký Blueprint, dependencies và migration cần trao đổi với người phụ trách nền tảng.
+5. Quân rà soát các thay đổi ảnh hưởng nhiều nhóm API. Kiên đối chiếu schema và migration với các đặc tả của Nam, Hưng và Tấn.
 
 ## Điều kiện bàn giao
 
@@ -31,5 +51,3 @@ Các đường dẫn backend ở trên tính từ `backend/src/student_assistant
 - API có kiểm tra quyền dữ liệu và validation tương ứng; không trả kết quả giả để che phần chưa triển khai.
 - Có kiểm thử luồng chính và lỗi đặc thù của module khi đã có nghiệp vụ.
 - Hướng dẫn cách chạy và giới hạn còn lại; UI phân biệt kết quả AI với dữ liệu chính thức.
-
-Hiện repo là scaffold để chia việc. Chưa có API nghiệp vụ, model dữ liệu, provider AI hay extension có thể cài chạy.
