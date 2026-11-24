@@ -11,3 +11,5 @@ flask --app wsgi:app db upgrade
 ```
 
 Lệnh `db migrate` cần kết nối database. Script bật pgvector đặt tại `../../infrastructure/postgres/init/001-enable-pgvector.sql`; cần cài pgvector và bật extension trong database đích trước khi tạo cột vector.
+
+Khi dùng Docker Compose, pgvector được bật lúc khởi tạo database lần đầu. Tạo và kiểm tra revision trên mã nguồn ở máy phát triển, build lại backend rồi chạy `docker compose exec backend python -m flask --app wsgi:app db upgrade` từ thư mục gốc repo. Xem [hướng dẫn Docker](../../infrastructure/docker/README.md).

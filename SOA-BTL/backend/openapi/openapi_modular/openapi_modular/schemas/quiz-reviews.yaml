@@ -1,0 +1,268 @@
+QuizItemInput:
+  type: object
+  required:
+  - question_number
+  - question_type
+  - question_text
+  - student_answer
+  - official_points
+  - max_points
+  properties:
+    question_number:
+      type: integer
+      example: 4
+      minimum: 1
+    question_type:
+      type: string
+      enum:
+      - MULTIPLE_CHOICE
+      - ESSAY
+      example: ESSAY
+    question_text:
+      type: string
+      example: Trình bày vai trò của API Gateway trong kiến trúc Microservices.
+      minLength: 1
+    student_answer:
+      type: string
+      example: API Gateway là điểm vào duy nhất giúp định tuyến request và xác thực người dùng.
+      description: Chuỗi rỗng nếu sinh viên bỏ trống câu hỏi; không suy đoán câu trả lời.
+    correct_answer_or_rubric:
+      type: string
+      nullable: true
+      example: 'Nêu được 3 ý: Single entry point/Routing (0.5đ), Authentication/Rate limiting (0.5đ).'
+    official_points:
+      type: number
+      example: 0.5
+      minimum: 0
+    max_points:
+      type: number
+      example: 1.0
+      minimum: 0
+      exclusiveMinimum: true
+CreateQuizReviewRequest:
+  type: object
+  required:
+  - course_id
+  - external_quiz_id
+  - quiz_title
+  - items
+  - quiz_status
+  - is_complete_attempt
+  properties:
+    course_id:
+      type: string
+      example: INT3306
+      minLength: 1
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    external_quiz_id:
+      type: string
+      example: quiz_midterm_01
+      minLength: 1
+      description: Mã tham chiếu Portal; ánh xạ portal_quiz_id. Không phải UUID nội bộ.
+    quiz_title:
+      type: string
+      example: Bài kiểm tra giữa kỳ 1
+      minLength: 1
+    items:
+      type: array
+      minItems: 1
+      items:
+        $ref: quiz-reviews.yaml#/QuizItemInput
+    portal_attempt_id:
+      type: string
+      nullable: true
+    quiz_status:
+      type: string
+      enum:
+      - GRADED
+      description: Quiz đã hoàn thành và có kết quả chấm công bố; Extension kiểm tra trạng thái thực tế từ Portal.
+    data_source:
+      type: string
+      enum:
+      - PORTAL
+      - MANUAL
+      default: PORTAL
+      description: MANUAL chỉ khi chức năng hỗ trợ và người dùng cung cấp hợp lệ, không xác nhận điểm chính thức.
+    is_complete_attempt:
+      type: boolean
+      description: True nếu toàn bộ câu hỏi và điểm thành phần của lượt làm được cung cấp.
+    portal_official_score:
+      type: number
+      minimum: 0
+      nullable: true
+      description: Điểm tổng chính thức hiển thị trên Portal nếu có; có thể dùng thang khác điểm thô từng câu.
+    portal_max_score:
+      type: number
+      minimum: 0
+      exclusiveMinimum: true
+      nullable: true
+QuizReviewItemResponse:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    question_number:
+      type: integer
+      example: 4
+    official_points:
+      type: number
+      example: 0.5
+      minimum: 0
+    ai_estimated_points:
+      type: number
+      nullable: true
+      description: Null nếu thiếu đáp án hoặc rubric để chấm định lượng (UC06 - Luồng E2)
+      example: 1.0
+      minimum: 0
+    is_discrepant:
+      type: boolean
+      nullable: true
+      description: Null khi không đủ căn cứ so sánh.
+      example: true
+    explanation:
+      type: string
+      example: Bài làm của bạn đã nêu đủ cả hai ý định tuyến và xác thực theo rubric.
+    max_points:
+      type: number
+      minimum: 0
+      exclusiveMinimum: true
+    assessment_limitations:
+      type: string
+      nullable: true
+  required:
+  - id
+  - question_number
+  - official_points
+  - ai_estimated_points
+  - is_discrepant
+  - explanation
+  - max_points
+  - assessment_limitations
+QuizReviewResponse:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    course_id:
+      type: string
+      example: INT3306
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    quiz_title:
+      type: string
+    disclaimer:
+      type: string
+      example: Kết quả đánh giá của AI chỉ mang tính chất tham khảo, không thay thế điểm chính thức của giảng viên.
+    official_total_score:
+      type: number
+      example: 7.5
+      nullable: true
+      description: Tổng điểm thô chính thức từ toàn bộ câu hỏi nếu đủ dữ liệu; null nếu không đầy đủ. Không mặc
+        định bằng điểm tổng đã quy đổi trên Portal.
+    ai_estimated_total_score:
+      type: number
+      nullable: true
+      example: 8.0
+      description: Tổng điểm thô AI nếu đủ căn cứ định lượng cho toàn bộ lượt làm; nếu thiếu thì null.
+    has_complete_rubric:
+      type: boolean
+      example: true
+    items:
+      type: array
+      items:
+        $ref: quiz-reviews.yaml#/QuizReviewItemResponse
+    created_at:
+      type: string
+      format: date-time
+    external_quiz_id:
+      type: string
+    portal_attempt_id:
+      type: string
+      nullable: true
+    assessment_status:
+      type: string
+      enum:
+      - COMPLETE
+      - PARTIAL
+      - QUALITATIVE_ONLY
+      description: 'COMPLETE: đầy đủ và chấm định lượng mọi câu; PARTIAL: chỉ một phần câu/điểm đủ căn cứ; QUALITATIVE_ONLY:
+        chỉ có phản hồi định tính.'
+    portal_official_score:
+      type: number
+      minimum: 0
+      nullable: true
+      description: Điểm tổng chính thức hiển thị trên Portal nếu có; có thể dùng thang khác điểm thô từng câu.
+    portal_max_score:
+      type: number
+      minimum: 0
+      exclusiveMinimum: true
+      nullable: true
+    data_source:
+      type: string
+      enum:
+      - PORTAL
+      - MANUAL
+    assessment_limitations:
+      type: string
+      nullable: true
+  required:
+  - id
+  - course_id
+  - quiz_title
+  - disclaimer
+  - official_total_score
+  - ai_estimated_total_score
+  - has_complete_rubric
+  - items
+  - created_at
+  - external_quiz_id
+  - portal_attempt_id
+  - assessment_status
+  - portal_official_score
+  - portal_max_score
+  - data_source
+  - assessment_limitations
+CommentSuggestionRequest:
+  type: object
+  required:
+  - purpose
+  - tone
+  properties:
+    purpose:
+      type: string
+      enum:
+      - REQUEST_REGRADE
+      - ASK_EXPLANATION
+      example: REQUEST_REGRADE
+    tone:
+      type: string
+      enum:
+      - CONCISE
+      - FORMAL
+      - DETAILED
+      example: FORMAL
+    question_numbers:
+      type: array
+      items:
+        type: integer
+        minimum: 1
+      description: Số câu phải thuộc lượt đánh giá được chỉ định bởi review_id.
+      example:
+      - 4
+    student_note:
+      type: string
+      nullable: true
+      example: Em nhờ thầy/cô xem lại giúp em ý xác thực ở câu 4 ạ.
+CommentSuggestionResponse:
+  type: object
+  required:
+  - suggested_content
+  properties:
+    suggested_content:
+      type: string
+      example: Kính gửi Thầy/Cô, em xin phép nhờ Thầy/Cô xem xét lại giúp em phần chấm điểm Câu 4 trong Bài kiểm
+        tra giữa kỳ 1...
+    note:
+      type: string
+      example: Vui lòng kiểm tra và chỉnh sửa nội dung trước khi tự gửi trên University Portal.

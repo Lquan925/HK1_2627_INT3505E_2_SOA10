@@ -1,0 +1,281 @@
+GradeDataSource:
+  type: string
+  enum:
+  - PORTAL
+  - MANUAL
+  description: >-
+    PORTAL là dữ liệu lấy từ grade book, cần consent GRADE_BOOK/GRADE_PLANNING cho môn của mục tiêu.
+    MANUAL là dữ liệu người dùng tự nhập, không đọc hoặc tái sử dụng dữ liệu Portal.
+    Đây là khai báo nguồn của Extension, không phải bằng chứng quyền Portal; Extension phải giữ nguồn
+    gốc khi trộn dữ liệu, không đổi dữ liệu Portal đã lưu thành MANUAL để bỏ qua consent.
+GradingRule:
+  type: string
+  enum:
+  - WEIGHTED_AVERAGE
+  description: >-
+    Chỉ hỗ trợ trung bình có trọng số: điểm mỗi thành phần được chia cho max_score của thành phần,
+    nhân max_scale của mục tiêu, rồi nhân weight_percent/100. Tổng trọng số phải bằng 100.
+    Không hỗ trợ bỏ bài thấp nhất, điểm thưởng hoặc điều kiện điểm liệt; công thức khác trả 422
+    UNSUPPORTED_GRADING_RULE, không suy diễn hoặc thực thi công thức bằng LLM.
+CreateGradeGoalRequest:
+  type: object
+  required:
+  - course_id
+  - scope_type
+  - target_score
+  - max_scale
+  - grading_rule
+  - data_source
+  properties:
+    course_id:
+      type: string
+      example: INT3306
+      minLength: 1
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    scope_type:
+      type: string
+      enum:
+      - QUIZ_AVERAGE
+      - COURSE_FINAL
+      example: QUIZ_AVERAGE
+      minLength: 1
+    target_score:
+      type: number
+      minimum: 0
+      example: 8.0
+    max_scale:
+      type: number
+      minimum: 1
+      example: 10.0
+    quiz_group_id:
+      type: string
+      nullable: true
+    grading_rule:
+      $ref: grade-planning.yaml#/GradingRule
+    data_source:
+      $ref: grade-planning.yaml#/GradeDataSource
+  oneOf:
+  - required:
+    - scope_type
+    - quiz_group_id
+    properties:
+      scope_type:
+        type: string
+        enum:
+        - QUIZ_AVERAGE
+      quiz_group_id:
+        type: string
+        minLength: 1
+  - required:
+    - scope_type
+    properties:
+      scope_type:
+        type: string
+        enum:
+        - COURSE_FINAL
+    not:
+      required:
+      - quiz_group_id
+      properties:
+        quiz_group_id:
+          type: string
+          nullable: true
+  example:
+    course_id: INT3306
+    scope_type: QUIZ_AVERAGE
+    quiz_group_id: quizzes-semester-1
+    target_score: 8
+    max_scale: 10
+    grading_rule: WEIGHTED_AVERAGE
+    data_source: MANUAL
+UpdateGradeGoalRequest:
+  type: object
+  required:
+  - target_score
+  properties:
+    target_score:
+      type: number
+      minimum: 0
+      example: 8.5
+GradeGoalResponse:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    course_id:
+      type: string
+      example: INT3306
+      description: Mã tham chiếu Portal; ánh xạ portal_course_id. Không phải UUID nội bộ.
+    scope_type:
+      type: string
+      enum:
+      - QUIZ_AVERAGE
+      - COURSE_FINAL
+    target_score:
+      type: number
+      example: 8.0
+    max_scale:
+      type: number
+      example: 10.0
+    updated_at:
+      type: string
+      format: date-time
+    quiz_group_id:
+      type: string
+      nullable: true
+    grading_rule:
+      $ref: grade-planning.yaml#/GradingRule
+    data_source:
+      $ref: grade-planning.yaml#/GradeDataSource
+  required:
+  - id
+  - course_id
+  - scope_type
+  - target_score
+  - max_scale
+  - updated_at
+  - grading_rule
+  - quiz_group_id
+  - data_source
+GradeComponentInput:
+  type: object
+  required:
+  - name
+  - weight_percent
+  - max_score
+  - is_completed
+  - data_source
+  properties:
+    name:
+      type: string
+      example: Quiz 1
+    weight_percent:
+      type: number
+      minimum: 0
+      maximum: 100
+      example: 20
+    max_score:
+      type: number
+      minimum: 0
+      exclusiveMinimum: true
+      example: 10
+    earned_score:
+      type: number
+      nullable: true
+      minimum: 0
+      description: Bắt buộc có điểm khi is_completed là true. Điểm không được vượt max_score.
+      example: 7.0
+    is_completed:
+      type: boolean
+      example: true
+    data_source:
+      $ref: grade-planning.yaml#/GradeDataSource
+  oneOf:
+  - required:
+    - is_completed
+    - earned_score
+    properties:
+      is_completed:
+        type: boolean
+        enum: [true]
+      earned_score:
+        type: number
+        minimum: 0
+  - required:
+    - is_completed
+    properties:
+      is_completed:
+        type: boolean
+        enum: [false]
+      earned_score:
+        type: number
+        nullable: true
+        enum: [null]
+CalculateGradeRequest:
+  type: object
+  required:
+  - components
+  properties:
+    components:
+      type: array
+      minItems: 1
+      description: >-
+        Toàn bộ thành phần thuộc phạm vi mục tiêu, gồm cả bài đã hoàn thành và chưa làm.
+        Tổng weight_percent phải bằng 100; không tự chia lại trọng số khi thiếu bài.
+        Mỗi thành phần giữ data_source riêng, cho phép trộn PORTAL và MANUAL.
+        earned_score không vượt max_score; bài chưa hoàn thành phải bỏ earned_score hoặc gửi null.
+        Sai tổng trọng số trả 422 INVALID_GRADE_WEIGHTS; điểm ngoài thang trả 422 INVALID_GRADE_SCORE.
+      items:
+        $ref: grade-planning.yaml#/GradeComponentInput
+      example:
+      - name: Quiz 1
+        weight_percent: 20
+        max_score: 10
+        earned_score: 7.0
+        is_completed: true
+        data_source: PORTAL
+      - name: Quiz 2
+        weight_percent: 20
+        max_score: 10
+        earned_score: 8.0
+        is_completed: true
+        data_source: PORTAL
+      - name: Quiz 3
+        weight_percent: 20
+        max_score: 10
+        earned_score: 9.0
+        is_completed: true
+        data_source: MANUAL
+      - name: Quiz 4
+        weight_percent: 20
+        max_score: 10
+        earned_score: null
+        is_completed: false
+        data_source: MANUAL
+      - name: Quiz 5
+        weight_percent: 20
+        max_score: 10
+        earned_score: null
+        is_completed: false
+        data_source: MANUAL
+GradeCalculationResponse:
+  type: object
+  description: >-
+    Gọi S là max_scale của mục tiêu, C = tổng (earned_score/max_score * S * weight_percent/100)
+    của bài đã hoàn thành và R = tổng (weight_percent/100) của bài chưa hoàn thành.
+    max_possible_final_score = C + S*R; is_feasible = (target_score <= max_possible_final_score).
+    Khi R > 0, required_avg_remaining_score = max(0, (target_score-C)/R), kể cả khi lớn hơn S
+    và mục tiêu không khả thi. Đây là trung bình có trọng số trên thang S, không phải điểm thô
+    của từng bài. Khi R = 0, required_avg_remaining_score = null và so sánh mục tiêu với C.
+    Không làm tròn giá trị trung gian hoặc trước khi xét tính khả thi.
+  required:
+  - goal_id
+  - target_score
+  - is_feasible
+  - required_avg_remaining_score
+  - max_possible_final_score
+  - explanation
+  properties:
+    goal_id:
+      type: string
+      format: uuid
+    target_score:
+      type: number
+      example: 8.0
+    is_feasible:
+      type: boolean
+      example: true
+    required_avg_remaining_score:
+      type: number
+      nullable: true
+      minimum: 0
+      description: Điểm trung bình có trọng số cần đạt trên max_scale của mục tiêu; null nếu không còn trọng số chưa hoàn thành.
+      example: 8.0
+    max_possible_final_score:
+      type: number
+      minimum: 0
+      example: 8.8
+    explanation:
+      type: string
+      example: Bạn cần đạt trung bình 8.0 điểm ở 2 bài quiz còn lại để hoàn thành mục tiêu 8.0.

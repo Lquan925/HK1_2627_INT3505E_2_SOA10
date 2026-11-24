@@ -1,0 +1,171 @@
+/chat/sessions:
+  get:
+    tags:
+    - Chat
+    summary: Lấy danh sách các phiên hội thoại của sinh viên
+    parameters:
+    - name: course_id
+      in: query
+      required: false
+      schema:
+        type: string
+        example: INT3306
+    - name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    - name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    - name: mode
+      in: query
+      schema:
+        type: string
+        enum:
+        - GENERAL
+        - COURSE_CONTEXT
+        - MULTI_COURSE_SUMMARY
+    responses:
+      '200':
+        description: Danh sách phiên hội thoại
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: ../schemas/chat.yaml#/ChatSession
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: listChatSessions
+    description: Liệt kê phiên chat của owner, lọc theo môn hoặc mode và phân trang ổn định.
+  post:
+    tags:
+    - Chat
+    summary: Tạo phiên chat thông thường hoặc chat theo môn học
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/chat.yaml#/CreateChatSessionRequest
+    responses:
+      '201':
+        description: Tạo phiên hội thoại thành công
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/chat.yaml#/ChatSession
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: createChatSession
+    description: GENERAL không cần môn hoặc consent. COURSE_CONTEXT cần course_id được phép; không tự truy xuất
+      tài liệu. Đổi môn dùng phiên khác. MULTI_COURSE_SUMMARY chỉ tạo qua API tóm tắt.
+/chat/sessions/{session_id}/messages:
+  get:
+    tags:
+    - Chat
+    summary: Lấy lịch sử tin nhắn trong một phiên hội thoại
+    parameters:
+    - name: session_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    - name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    responses:
+      '200':
+        description: Danh sách tin nhắn theo thứ tự thời gian
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: ../schemas/chat.yaml#/ChatMessageResponse
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '404':
+        $ref: ../common/responses.yaml#/NotFoundError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: listChatMessages
+    description: Lấy lịch sử của owner theo thời gian, có phân trang. Không trả hoặc tái sử dụng nội dung đã mất
+      quyền sử dụng. Message SUMMARY trả lại is_partial_content và coverage_note đã lưu cùng bản tóm tắt.
+      GENERAL không cần consent Portal.
+  post:
+    tags:
+    - Chat
+    summary: Gửi tin nhắn và nhận phản hồi AI (GENERAL hoặc UC03 RAG)
+    parameters:
+    - name: session_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/chat.yaml#/SendMessageRequest
+    responses:
+      '200':
+        description: Tin nhắn ASSISTANT từ LLM, kèm nguồn khi có
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/chat.yaml#/ChatMessageResponse
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '404':
+        $ref: ../common/responses.yaml#/NotFoundError
+      '504':
+        $ref: ../common/responses.yaml#/GatewayTimeoutError
+      '403':
+        $ref: ../common/responses.yaml#/ForbiddenError
+      '503':
+        $ref: ../common/responses.yaml#/ServiceUnavailableError
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError
+      '409':
+        $ref: ../common/responses.yaml#/ConflictError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: sendChatMessage
+    description: GENERAL dùng LLM và lịch sử riêng, không nhận document_ids hoặc trích dẫn Portal. COURSE_CONTEXT
+      dùng RAG trên document_ids đúng môn đã kiểm tra quyền nguồn, owner, consent KNOWLEDGE_QA và DOCUMENT_ACCESS.
+      Thiếu phạm vi/chỉ mục trả 422; không đủ ngữ cảnh trả 200 INSUFFICIENT_CONTEXT. Tách kiến thức bổ sung, không
+      tạo nguồn giả. Lưu USER/ASSISTANT; USER answer_status=null. MULTI_COURSE_SUMMARY trả 409; AI lỗi trả 503/504.

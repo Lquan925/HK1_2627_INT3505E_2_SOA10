@@ -1,0 +1,123 @@
+DataConsent:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    data_category:
+      type: string
+      enum:
+      - COURSE_DOCUMENTS
+      - QUIZ_SUBMISSIONS
+      - GRADE_BOOK
+      example: COURSE_DOCUMENTS
+    is_granted:
+      type: boolean
+      example: true
+    updated_at:
+      type: string
+      format: date-time
+    purpose:
+      $ref: consents.yaml#/ConsentPurpose
+    scope:
+      $ref: consents.yaml#/ConsentScope
+  required:
+  - id
+  - data_category
+  - is_granted
+  - updated_at
+  - purpose
+  - scope
+  description: Bản ghi quyết định đã lưu theo owner, data_category, purpose. Không có bản ghi tương ứng nghĩa là
+    chưa cấp quyền.
+UpdateConsentRequest:
+  type: object
+  required:
+  - data_category
+  - is_granted
+  - purpose
+  - scope
+  properties:
+    data_category:
+      type: string
+      enum:
+      - COURSE_DOCUMENTS
+      - QUIZ_SUBMISSIONS
+      - GRADE_BOOK
+      example: COURSE_DOCUMENTS
+    is_granted:
+      type: boolean
+      example: true
+    purpose:
+      $ref: consents.yaml#/ConsentPurpose
+    scope:
+      $ref: consents.yaml#/ConsentScope
+  description: 'Cập nhật toàn bộ phạm vi cho cặp data_category + purpose. is_granted=false thu hồi cả cặp; muốn
+    thu hẹp phạm vi, gửi is_granted=true với danh sách môn mới. Backend kiểm tra purpose phù hợp category: COURSE_DOCUMENTS
+    cho KNOWLEDGE_QA/KNOWLEDGE_SEARCH/DOCUMENT_SUMMARY/LEARNING_ANALYSIS; QUIZ_SUBMISSIONS cho QUIZ_REVIEW/COMMENT_SUGGESTION/LEARNING_ANALYSIS;
+    GRADE_BOOK cho GRADE_PLANNING/LEARNING_ANALYSIS (và QUIZ_REVIEW/COMMENT_SUGGESTION nếu dùng dữ liệu điểm từ
+    grade book).'
+  example:
+    data_category: COURSE_DOCUMENTS
+    purpose: KNOWLEDGE_QA
+    is_granted: true
+    scope:
+      type: SELECTED_COURSES
+      course_ids:
+      - INT3306
+ConsentPurpose:
+  type: string
+  enum:
+  - KNOWLEDGE_QA
+  - KNOWLEDGE_SEARCH
+  - DOCUMENT_SUMMARY
+  - QUIZ_REVIEW
+  - COMMENT_SUGGESTION
+  - GRADE_PLANNING
+  - LEARNING_ANALYSIS
+  description: Mục đích UC03, UC04, UC05, UC06, UC07, UC08–UC09 hoặc UC10 tương ứng.
+ConsentScope:
+  type: object
+  properties:
+    type:
+      type: string
+      enum:
+      - SELECTED_COURSES
+      - ALL_AUTHORIZED_COURSES
+    course_ids:
+      type: array
+      items:
+        type: string
+        minLength: 1
+      uniqueItems: true
+      description: Bắt buộc có ít nhất một ID nếu SELECTED_COURSES; nếu ALL_AUTHORIZED_COURSES phải bỏ trống hoặc
+        []. Chỉ là phạm vi consent, không cấp quyền Portal.
+  required:
+  - type
+  oneOf:
+  - required:
+    - type
+    - course_ids
+    properties:
+      type:
+        type: string
+        enum:
+        - SELECTED_COURSES
+      course_ids:
+        type: array
+        minItems: 1
+        items:
+          type: string
+          minLength: 1
+  - required:
+    - type
+    properties:
+      type:
+        type: string
+        enum:
+        - ALL_AUTHORIZED_COURSES
+      course_ids:
+        type: array
+        maxItems: 0
+        items:
+          type: string

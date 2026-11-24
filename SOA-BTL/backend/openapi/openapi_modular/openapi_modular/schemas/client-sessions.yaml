@@ -1,0 +1,18 @@
+ClientSessionResponse:
+  type: object
+  properties:
+    client_session_id:
+      type: string
+      format: uuid
+      description: ID phiên Extension, khác session_id hội thoại.
+    session_token:
+      type: string
+      minLength: 32
+      description: Token ngẫu nhiên không đoán được (ít nhất 128 bit entropy); chỉ trả khi tạo.
+    expires_at:
+      type: string
+      format: date-time
+  required:
+  - client_session_id
+  - session_token
+  - expires_at

@@ -1,0 +1,6 @@
+sessionAuth:
+  type: apiKey
+  in: header
+  name: X-Session-Token
+  description: Opaque token ngẫu nhiên do Backend cấp. Chỉ truyền qua HTTPS ngoài môi trường local; không ghi log
+    token, không truyền trong URL. Không phải token Portal hoặc JWT.

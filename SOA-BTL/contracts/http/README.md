@@ -1,6 +1,6 @@
 # Hợp đồng HTTP
 
-Quy ước cho API REST; đặc tả chính đặt tại [`../../backend/openapi/student_assistant.yaml`](../../backend/openapi/student_assistant.yaml). Chưa có endpoint được triển khai.
+Quy ước cho API REST; đặc tả chính đặt tại [OpenAPI dạng module](../../backend/openapi/openapi_modular/openapi_modular/openapi.yaml). Xem [hướng dẫn bundle/lint và thay đổi contract](../../backend/openapi/openapi_modular/openapi_modular/README.md). Chưa có endpoint được triển khai.
 
 Các nhóm API cần thiết theo kiến trúc:
 

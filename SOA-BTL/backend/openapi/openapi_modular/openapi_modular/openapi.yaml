@@ -1,0 +1,163 @@
+openapi: 3.0.3
+info:
+  title: AI Student Assistant API
+  version: 2.0.0
+  description: REST API cho AI Student Assistant trên Chrome Extension. Extension truy xuất dữ liệu Portal theo
+    yêu cầu, quyền truy cập và consent UC02; không thu thập thông tin đăng nhập hoặc sửa dữ liệu Portal. Backend
+    dùng token phiên ẩn danh, kiểm tra quyền sở hữu và consent. Token không xác minh quyền Portal; Extension kiểm
+    tra lại quyền nguồn trước khi sử dụng. UC01 xử lý tại Extension; UC07 và UC09 giữ nguyên nghiệp vụ. Chat GENERAL
+    không cần dữ liệu Portal. Khi đổi tài khoản hoặc logout, thu hồi phiên cũ. Chính sách lưu giữ dữ liệu và xác
+    minh quyền Portal ở production cần được thống nhất.
+servers:
+- url: /api/v1
+  description: API trên cùng máy chủ phục vụ đặc tả OpenAPI
+tags:
+- name: ClientSessions
+  description: Phiên Extension ẩn danh, không phải tài khoản Portal hay phiên hội thoại.
+- name: Consents
+  description: Quản lý quyền cho phép sử dụng dữ liệu Portal (UC02)
+- name: Documents
+  description: Đồng bộ, tìm kiếm và tóm tắt tài liệu học tập (UC02, UC04, UC05)
+- name: Chat
+  description: Chat thông thường và hỏi đáp kiến thức RAG theo môn (UC03).
+- name: QuizReviews
+  description: Đánh giá tham khảo bài Quiz và gợi ý Comment gửi giảng viên (UC06, UC07)
+- name: GradePlanning
+  description: Thiết lập mục tiêu và dự tính điểm cần đạt (UC08, UC09)
+- name: Recommendations
+  description: Phân tích kết quả học tập và đề xuất nội dung ôn tập (UC10)
+security:
+- sessionAuth: []
+paths:
+  /client-sessions:
+    $ref: ./paths/client-sessions.yaml#/~1client-sessions
+  /client-sessions/current:
+    $ref: ./paths/client-sessions.yaml#/~1client-sessions~1current
+  /consents:
+    $ref: ./paths/consents.yaml#/~1consents
+  /documents/sync:
+    $ref: ./paths/documents.yaml#/~1documents~1sync
+  /documents:
+    $ref: ./paths/documents.yaml#/~1documents
+  /documents/search:
+    $ref: ./paths/documents.yaml#/~1documents~1search
+  /documents/summarize:
+    $ref: ./paths/documents.yaml#/~1documents~1summarize
+  /chat/sessions:
+    $ref: ./paths/chat.yaml#/~1chat~1sessions
+  /chat/sessions/{session_id}/messages:
+    $ref: ./paths/chat.yaml#/~1chat~1sessions~1{session_id}~1messages
+  /quiz-reviews:
+    $ref: ./paths/quiz-reviews.yaml#/~1quiz-reviews
+  /quiz-reviews/{review_id}:
+    $ref: ./paths/quiz-reviews.yaml#/~1quiz-reviews~1{review_id}
+  /quiz-reviews/{review_id}/comment-suggestions:
+    $ref: ./paths/quiz-reviews.yaml#/~1quiz-reviews~1{review_id}~1comment-suggestions
+  /grade-goals:
+    $ref: ./paths/grade-planning.yaml#/~1grade-goals
+  /grade-goals/{goal_id}:
+    $ref: ./paths/grade-planning.yaml#/~1grade-goals~1{goal_id}
+  /grade-goals/{goal_id}/calculate:
+    $ref: ./paths/grade-planning.yaml#/~1grade-goals~1{goal_id}~1calculate
+  /learning-analyses:
+    $ref: ./paths/recommendations.yaml#/~1learning-analyses
+  /learning-analyses/{analysis_id}:
+    $ref: ./paths/recommendations.yaml#/~1learning-analyses~1{analysis_id}
+  /documents/{document_id}/chunks/{chunk_id}:
+    $ref: ./paths/documents.yaml#/~1documents~1{document_id}~1chunks~1{chunk_id}
+components:
+  securitySchemes:
+    sessionAuth:
+      $ref: ./common/securitySchemes.yaml#/sessionAuth
+  responses:
+    UnauthorizedError:
+      $ref: ./common/responses.yaml#/UnauthorizedError
+    ForbiddenError:
+      $ref: ./common/responses.yaml#/ForbiddenError
+    BadRequestError:
+      $ref: ./common/responses.yaml#/BadRequestError
+    NotFoundError:
+      $ref: ./common/responses.yaml#/NotFoundError
+    UnprocessableEntityError:
+      $ref: ./common/responses.yaml#/UnprocessableEntityError
+    GatewayTimeoutError:
+      $ref: ./common/responses.yaml#/GatewayTimeoutError
+    ConflictError:
+      $ref: ./common/responses.yaml#/ConflictError
+    ServiceUnavailableError:
+      $ref: ./common/responses.yaml#/ServiceUnavailableError
+    RateLimitError:
+      $ref: ./common/responses.yaml#/RateLimitError
+  schemas:
+    ErrorResponse:
+      $ref: ./schemas/common.yaml#/ErrorResponse
+    DataConsent:
+      $ref: ./schemas/consents.yaml#/DataConsent
+    UpdateConsentRequest:
+      $ref: ./schemas/consents.yaml#/UpdateConsentRequest
+    SyncDocumentRequest:
+      $ref: ./schemas/documents.yaml#/SyncDocumentRequest
+    DocumentMetadata:
+      $ref: ./schemas/documents.yaml#/DocumentMetadata
+    SearchResultItem:
+      $ref: ./schemas/documents.yaml#/SearchResultItem
+    SummarizeRequest:
+      $ref: ./schemas/documents.yaml#/SummarizeRequest
+    SummarizeResponse:
+      $ref: ./schemas/documents.yaml#/SummarizeResponse
+    CreateChatSessionRequest:
+      $ref: ./schemas/chat.yaml#/CreateChatSessionRequest
+    ChatSession:
+      $ref: ./schemas/chat.yaml#/ChatSession
+    SendMessageRequest:
+      $ref: ./schemas/chat.yaml#/SendMessageRequest
+    ChatCitation:
+      $ref: ./schemas/chat.yaml#/ChatCitation
+    ChatMessageResponse:
+      $ref: ./schemas/chat.yaml#/ChatMessageResponse
+    QuizItemInput:
+      $ref: ./schemas/quiz-reviews.yaml#/QuizItemInput
+    CreateQuizReviewRequest:
+      $ref: ./schemas/quiz-reviews.yaml#/CreateQuizReviewRequest
+    QuizReviewItemResponse:
+      $ref: ./schemas/quiz-reviews.yaml#/QuizReviewItemResponse
+    QuizReviewResponse:
+      $ref: ./schemas/quiz-reviews.yaml#/QuizReviewResponse
+    CommentSuggestionRequest:
+      $ref: ./schemas/quiz-reviews.yaml#/CommentSuggestionRequest
+    CommentSuggestionResponse:
+      $ref: ./schemas/quiz-reviews.yaml#/CommentSuggestionResponse
+    CreateGradeGoalRequest:
+      $ref: ./schemas/grade-planning.yaml#/CreateGradeGoalRequest
+    UpdateGradeGoalRequest:
+      $ref: ./schemas/grade-planning.yaml#/UpdateGradeGoalRequest
+    GradeGoalResponse:
+      $ref: ./schemas/grade-planning.yaml#/GradeGoalResponse
+    GradeDataSource:
+      $ref: ./schemas/grade-planning.yaml#/GradeDataSource
+    GradingRule:
+      $ref: ./schemas/grade-planning.yaml#/GradingRule
+    GradeComponentInput:
+      $ref: ./schemas/grade-planning.yaml#/GradeComponentInput
+    CalculateGradeRequest:
+      $ref: ./schemas/grade-planning.yaml#/CalculateGradeRequest
+    GradeCalculationResponse:
+      $ref: ./schemas/grade-planning.yaml#/GradeCalculationResponse
+    CreateLearningAnalysisRequest:
+      $ref: ./schemas/recommendations.yaml#/CreateLearningAnalysisRequest
+    LearningRecommendationItem:
+      $ref: ./schemas/recommendations.yaml#/LearningRecommendationItem
+    LearningAnalysisResponse:
+      $ref: ./schemas/recommendations.yaml#/LearningAnalysisResponse
+    DocumentChunkDetail:
+      $ref: ./schemas/documents.yaml#/DocumentChunkDetail
+    LearningEvidenceItem:
+      $ref: ./schemas/recommendations.yaml#/LearningEvidenceItem
+    ClientSessionResponse:
+      $ref: ./schemas/client-sessions.yaml#/ClientSessionResponse
+    ConsentPurpose:
+      $ref: ./schemas/consents.yaml#/ConsentPurpose
+    ConsentScope:
+      $ref: ./schemas/consents.yaml#/ConsentScope
+    SyncDocumentFileRequest:
+      $ref: ./schemas/documents.yaml#/SyncDocumentFileRequest

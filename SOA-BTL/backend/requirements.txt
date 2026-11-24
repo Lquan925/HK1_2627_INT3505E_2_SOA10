@@ -1,0 +1,3 @@
+# Cài ứng dụng và các phụ thuộc khai báo trong pyproject.toml.
+# Chạy pip từ thư mục backend/ để dùng đúng đường dẫn dự án.
+-e .

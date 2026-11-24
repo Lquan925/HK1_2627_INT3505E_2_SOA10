@@ -1,0 +1,48 @@
+/consents:
+  get:
+    tags:
+    - Consents
+    summary: Lấy danh sách trạng thái cấp quyền sử dụng dữ liệu của sinh viên
+    responses:
+      '200':
+        description: Danh sách quyền truy xuất dữ liệu theo từng nhóm
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: ../schemas/consents.yaml#/DataConsent
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: listConsents
+    description: Lấy consent theo phiên, loại dữ liệu và mục đích. Chưa có bản ghi nghĩa là chưa cấp quyền.
+  put:
+    tags:
+    - Consents
+    summary: Cấp quyền, thay đổi hoặc thu hồi quyền sử dụng dữ liệu Portal (UC02)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/consents.yaml#/UpdateConsentRequest
+    responses:
+      '200':
+        description: Cập nhật quyền thành công
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/consents.yaml#/DataConsent
+      '400':
+        $ref: ../common/responses.yaml#/BadRequestError
+      '401':
+        $ref: ../common/responses.yaml#/UnauthorizedError
+      '422':
+        $ref: ../common/responses.yaml#/UnprocessableEntityError
+      '429':
+        $ref: ../common/responses.yaml#/RateLimitError
+    operationId: updateConsent
+    description: Cập nhật consent theo loại dữ liệu, mục đích và phạm vi. Khi thu hồi hoặc thu hẹp, dừng truy xuất
+      và sử dụng cache/lịch sử liên quan; kiểm tra lại trước khi trả hoặc lưu kết quả. Chat GENERAL vẫn hoạt động.

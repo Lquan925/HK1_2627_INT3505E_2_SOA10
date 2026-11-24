@@ -1,0 +1,438 @@
+// Đặc tả ERD logic/vật lý đề xuất; chưa tạo bảng hay migration.
+// Sinh SVG: dot -Tsvg ai-student-assistant-extension-erd-updated.dot -o ai-student-assistant-extension-erd-updated.svg
+// Giữ file SVG gốc để so sánh. Mọi mã định danh ngoại hệ thống giữ dạng text.
+// CLIENT_SESSIONS: token_hash UNIQUE; expires_at > created_at; thu hồi/hết hạn chặn mọi yêu cầu.
+// DATA_CONSENTS UQ(client_session_id, data_category, purpose); không có bản ghi là chưa cấp quyền.
+// CONSENT_COURSES PK(consent_id, course_id); SELECTED_COURSES cần >=1 dòng, ALL_AUTHORIZED_COURSES không có dòng.
+// data_category: COURSE_DOCUMENTS / QUIZ_SUBMISSIONS / GRADE_BOOK.
+// purpose: KNOWLEDGE_QA / KNOWLEDGE_SEARCH / DOCUMENT_SUMMARY / QUIZ_REVIEW / COMMENT_SUGGESTION / GRADE_PLANNING / LEARNING_ANALYSIS.
+// Backend kiểm tra category-purpose phù hợp và consent trước khi đọc/lưu/trả dữ liệu.
+// DOCUMENTS UQ(client_session_id, course_id, external_doc_id); index_status=PENDING / INDEXED / FAILED.
+// DOCUMENT_CHUNKS UQ(document_id,index_generation,chunk_index); chunk_index>=0.
+// DOCUMENTS.active_index_generation chọn thế hệ chỉ mục hiện hành; chỉ tìm kiếm trong thế hệ này.
+// Đổi nội dung tạo index_generation mới; giữ chunks cũ cho citation rồi dọn theo chính sách lưu giữ.
+// DOCUMENT_ACCESS là metadata kiểm tra nguồn gần nhất, không thay quyền Portal hiện tại.
+// MESSAGE_DOCUMENTS / ANALYSIS_DOCUMENTS lưu toàn bộ phạm vi nguồn, kể cả tài liệu không được cite.
+// Mọi liên kết FK phải cùng owner và đúng môn; owner bảng con suy ra từ FK tới bảng cha.
+// CHAT_SESSIONS mode=GENERAL / COURSE_CONTEXT / MULTI_COURSE_SUMMARY.
+// COURSE_CONTEXT cần course_id; GENERAL/MULTI_COURSE_SUMMARY có course_id/course_name=NULL.
+// CHAT_MESSAGES role=USER / ASSISTANT; message_type=CHAT / SUMMARY.
+// USER: answer_status=NULL, không citation/kiến thức ngoài nguồn.
+// SUMMARY: role=ASSISTANT, coverage_note khác rỗng; lưu cờ partial cho lịch sử.
+// CHAT: is_partial_content=false, coverage_note=NULL.
+// answer_status: ANSWERED / INSUFFICIENT_CONTEXT, hoặc NULL theo role.
+// QUIZ_REVIEWS quiz_status=GRADED; assessment_status=COMPLETE / PARTIAL / QUALITATIVE_ONLY.
+// QUIZ_REVIEW_ITEMS UQ(review_id,question_number); question_number>=1; question_type=MULTIPLE_CHOICE / ESSAY.
+// max_points>0; 0<=official_points<=max_points; ai_estimated_points=NULL khi thiếu rubric, nếu có phải trong [0,max_points].
+// Tổng điểm chỉ có khi đủ căn cứ; không so sánh điểm khác thang.
+// data_source=PORTAL / MANUAL, giữ nguyên nguồn khi tái sử dụng.
+// used_data_categories lưu QUIZ_SUBMISSIONS/GRADE_BOOK thực tế đã dùng; MANUAL dùng mảng rỗng.
+// PORTAL phải còn consent cho từng category/purpose đã sử dụng khi đọc lại dữ liệu.
+// GRADE_GOALS: 0<=target_score<=max_scale; max_scale>=1; grading_rule=WEIGHTED_AVERAGE.
+// scope_type=QUIZ_AVERAGE cần quiz_group_id; COURSE_FINAL có quiz_group_id=NULL.
+// UQ mục tiêu theo (owner,course_id,scope_type,quiz_group_id); NULL nhóm phải được xem là trùng.
+// Mục tiêu PORTAL cần consent GRADE_BOOK/GRADE_PLANNING đúng môn.
+// UC09 tính trực tiếp; không có bảng lưu danh sách thành phần hoặc kết quả tính.
+// LEARNING_RECOMMENDATIONS UQ(analysis_id,priority_rank); priority_rank>=1.
+// observed_evidence là mảng JSONB không rỗng, tách riêng ai_inference.
+// LEARNING_EVIDENCE giữ câu hỏi/điểm chi tiết; không suy luận chủ đề từ điểm tổng.
+// Tài liệu và chủ đề liên quan phải cùng owner/môn; related_document_id có thể NULL.
+// Thu hồi consent phải chặn cả bằng chứng, nguồn tài liệu và nội dung suy ra.
+// UC07 sinh comment tức thời, không có bảng lưu comment. UC09 không lưu đầu vào/kết quả.
+// Cần chốt mô hình/kích thước D của embedding trước khi tạo cột vector(D) và chỉ mục ANN.
+graph ERD_UPDATED {
+  graph [rankdir=LR, bgcolor="white", pad="0.4", nodesep="0.24", ranksep="0.8", splines=polyline, overlap=false, outputorder=edgesfirst, fontname="Arial", fontsize=22, labelloc=t, label="AI STUDENT ASSISTANT — ERD ĐÃ CẬP NHẬT\nPhù hợp hợp đồng OpenAPI 2.0.0 • Phiên ẩn danh • 18 thực thể"];
+  node [fontname="Arial", fontsize=12, color="#334155", penwidth=1.2, style=filled];
+  edge [fontname="Arial", fontsize=11, color="#64748b", fontcolor="#334155", penwidth=1.0];
+  client_sessions [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>CLIENT_SESSIONS</B><BR/><FONT POINT-SIZE="12">Phiên Extension ẩn danh</FONT>>];
+  client_sessions_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  client_sessions -- client_sessions_a0 [color="#94a3b8", weight=1];
+  client_sessions_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<token_hash : text [UQ]>];
+  client_sessions -- client_sessions_a1 [color="#94a3b8", weight=1];
+  client_sessions_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<created_at : timestamptz>];
+  client_sessions -- client_sessions_a2 [color="#94a3b8", weight=1];
+  client_sessions_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<expires_at : timestamptz>];
+  client_sessions -- client_sessions_a3 [color="#94a3b8", weight=1];
+  client_sessions_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<revoked_at : timestamptz ?>];
+  client_sessions -- client_sessions_a4 [color="#94a3b8", weight=1];
+  data_consents [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>DATA_CONSENTS</B><BR/><FONT POINT-SIZE="12">Quyền sử dụng dữ liệu</FONT>>];
+  data_consents_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  data_consents -- data_consents_a0 [color="#94a3b8", weight=1];
+  data_consents_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<client_session_id : uuid [FK]>];
+  data_consents -- data_consents_a1 [color="#94a3b8", weight=1];
+  data_consents_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<data_category : text>];
+  data_consents -- data_consents_a2 [color="#94a3b8", weight=1];
+  data_consents_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<purpose : text>];
+  data_consents -- data_consents_a3 [color="#94a3b8", weight=1];
+  data_consents_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<is_granted : boolean>];
+  data_consents -- data_consents_a4 [color="#94a3b8", weight=1];
+  data_consents_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<scope_type : text>];
+  data_consents -- data_consents_a5 [color="#94a3b8", weight=1];
+  data_consents_a6 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<updated_at : timestamptz>];
+  data_consents -- data_consents_a6 [color="#94a3b8", weight=1];
+  data_consents_a7 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<granted_at : timestamptz ?>];
+  data_consents -- data_consents_a7 [color="#94a3b8", weight=1];
+  data_consents_a8 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<revoked_at : timestamptz ?>];
+  data_consents -- data_consents_a8 [color="#94a3b8", weight=1];
+  consent_courses [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>CONSENT_COURSES</B><BR/><FONT POINT-SIZE="12">Môn học trong phạm vi consent</FONT>>];
+  consent_courses_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>consent_id : uuid [PK, FK]</U>>];
+  consent_courses -- consent_courses_a0 [color="#94a3b8", weight=1];
+  consent_courses_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>course_id : text [PK]</U>>];
+  consent_courses -- consent_courses_a1 [color="#94a3b8", weight=1];
+  documents [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>DOCUMENTS</B><BR/><FONT POINT-SIZE="12">Tài liệu thuộc phiên</FONT>>];
+  documents_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  documents -- documents_a0 [color="#94a3b8", weight=1];
+  documents_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<client_session_id : uuid [FK]>];
+  documents -- documents_a1 [color="#94a3b8", weight=1];
+  documents_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<course_id : text>];
+  documents -- documents_a2 [color="#94a3b8", weight=1];
+  documents_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<external_doc_id : text>];
+  documents -- documents_a3 [color="#94a3b8", weight=1];
+  documents_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<title : text>];
+  documents -- documents_a4 [color="#94a3b8", weight=1];
+  documents_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<source_url : text ?>];
+  documents -- documents_a5 [color="#94a3b8", weight=1];
+  documents_a6 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<source_revision : text ?>];
+  documents -- documents_a6 [color="#94a3b8", weight=1];
+  documents_a7 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<active_index_generation : uuid ?>];
+  documents -- documents_a7 [color="#94a3b8", weight=1];
+  documents_a8 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<index_status : text>];
+  documents -- documents_a8 [color="#94a3b8", weight=1];
+  documents_a9 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<is_partial_content : boolean>];
+  documents -- documents_a9 [color="#94a3b8", weight=1];
+  documents_a10 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<created_at : timestamptz>];
+  documents -- documents_a10 [color="#94a3b8", weight=1];
+  documents_a11 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<updated_at : timestamptz>];
+  documents -- documents_a11 [color="#94a3b8", weight=1];
+  document_access [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>DOCUMENT_ACCESS</B><BR/><FONT POINT-SIZE="12">Lần kiểm tra quyền nguồn gần nhất</FONT>>];
+  document_access_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>document_id : uuid [PK, FK]</U>>];
+  document_access -- document_access_a0 [color="#94a3b8", weight=1];
+  document_access_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<access_status : text>];
+  document_access -- document_access_a1 [color="#94a3b8", weight=1];
+  document_access_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<last_checked_at : timestamptz>];
+  document_access -- document_access_a2 [color="#94a3b8", weight=1];
+  document_access_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<permission_source : text>];
+  document_access -- document_access_a3 [color="#94a3b8", weight=1];
+  document_chunks [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>DOCUMENT_CHUNKS</B><BR/><FONT POINT-SIZE="12">Đoạn tài liệu và vector</FONT>>];
+  document_chunks_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  document_chunks -- document_chunks_a0 [color="#94a3b8", weight=1];
+  document_chunks_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<document_id : uuid [FK]>];
+  document_chunks -- document_chunks_a1 [color="#94a3b8", weight=1];
+  document_chunks_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<index_generation : uuid>];
+  document_chunks -- document_chunks_a2 [color="#94a3b8", weight=1];
+  document_chunks_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<source_revision : text ?>];
+  document_chunks -- document_chunks_a3 [color="#94a3b8", weight=1];
+  document_chunks_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<chunk_index : integer>];
+  document_chunks -- document_chunks_a4 [color="#94a3b8", weight=1];
+  document_chunks_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<content : text>];
+  document_chunks -- document_chunks_a5 [color="#94a3b8", weight=1];
+  document_chunks_a6 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<location_label : text ?>];
+  document_chunks -- document_chunks_a6 [color="#94a3b8", weight=1];
+  document_chunks_a7 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<embedding : vector(D)>];
+  document_chunks -- document_chunks_a7 [color="#94a3b8", weight=1];
+  document_chunks_a8 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<embedding_model : text>];
+  document_chunks -- document_chunks_a8 [color="#94a3b8", weight=1];
+  document_chunks_a9 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<created_at : timestamptz>];
+  document_chunks -- document_chunks_a9 [color="#94a3b8", weight=1];
+  chat_sessions [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>CHAT_SESSIONS</B><BR/><FONT POINT-SIZE="12">Phiên hội thoại</FONT>>];
+  chat_sessions_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  chat_sessions -- chat_sessions_a0 [color="#94a3b8", weight=1];
+  chat_sessions_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<client_session_id : uuid [FK]>];
+  chat_sessions -- chat_sessions_a1 [color="#94a3b8", weight=1];
+  chat_sessions_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<mode : text>];
+  chat_sessions -- chat_sessions_a2 [color="#94a3b8", weight=1];
+  chat_sessions_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<course_id : text ?>];
+  chat_sessions -- chat_sessions_a3 [color="#94a3b8", weight=1];
+  chat_sessions_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<course_name : text ?>];
+  chat_sessions -- chat_sessions_a4 [color="#94a3b8", weight=1];
+  chat_sessions_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<created_at : timestamptz>];
+  chat_sessions -- chat_sessions_a5 [color="#94a3b8", weight=1];
+  chat_messages [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>CHAT_MESSAGES</B><BR/><FONT POINT-SIZE="12">Tin nhắn và tóm tắt đã lưu</FONT>>];
+  chat_messages_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  chat_messages -- chat_messages_a0 [color="#94a3b8", weight=1];
+  chat_messages_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<chat_session_id : uuid [FK]>];
+  chat_messages -- chat_messages_a1 [color="#94a3b8", weight=1];
+  chat_messages_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<role : text>];
+  chat_messages -- chat_messages_a2 [color="#94a3b8", weight=1];
+  chat_messages_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<message_type : text>];
+  chat_messages -- chat_messages_a3 [color="#94a3b8", weight=1];
+  chat_messages_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<content : text>];
+  chat_messages -- chat_messages_a4 [color="#94a3b8", weight=1];
+  chat_messages_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<answer_status : text ?>];
+  chat_messages -- chat_messages_a5 [color="#94a3b8", weight=1];
+  chat_messages_a6 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<has_external_knowledge : boolean>];
+  chat_messages -- chat_messages_a6 [color="#94a3b8", weight=1];
+  chat_messages_a7 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<external_knowledge_note : text ?>];
+  chat_messages -- chat_messages_a7 [color="#94a3b8", weight=1];
+  chat_messages_a8 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<is_partial_content : boolean>];
+  chat_messages -- chat_messages_a8 [color="#94a3b8", weight=1];
+  chat_messages_a9 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<coverage_note : text ?>];
+  chat_messages -- chat_messages_a9 [color="#94a3b8", weight=1];
+  chat_messages_a10 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<created_at : timestamptz>];
+  chat_messages -- chat_messages_a10 [color="#94a3b8", weight=1];
+  chat_citations [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>CHAT_CITATIONS</B><BR/><FONT POINT-SIZE="12">Nguồn trích dẫn của tin nhắn</FONT>>];
+  chat_citations_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  chat_citations -- chat_citations_a0 [color="#94a3b8", weight=1];
+  chat_citations_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<message_id : uuid [FK]>];
+  chat_citations -- chat_citations_a1 [color="#94a3b8", weight=1];
+  chat_citations_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<chunk_id : uuid [FK]>];
+  chat_citations -- chat_citations_a2 [color="#94a3b8", weight=1];
+  chat_citations_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<quoted_snippet : text>];
+  chat_citations -- chat_citations_a3 [color="#94a3b8", weight=1];
+  chat_citations_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<document_title_snapshot : text>];
+  chat_citations -- chat_citations_a4 [color="#94a3b8", weight=1];
+  chat_citations_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<location_label : text ?>];
+  chat_citations -- chat_citations_a5 [color="#94a3b8", weight=1];
+  message_documents [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>MESSAGE_DOCUMENTS</B><BR/><FONT POINT-SIZE="12">Toàn bộ tài liệu đã dùng cho tin nhắn</FONT>>];
+  message_documents_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>message_id : uuid [PK, FK]</U>>];
+  message_documents -- message_documents_a0 [color="#94a3b8", weight=1];
+  message_documents_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>document_id : uuid [PK, FK]</U>>];
+  message_documents -- message_documents_a1 [color="#94a3b8", weight=1];
+  message_documents_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<source_revision_snapshot : text ?>];
+  message_documents -- message_documents_a2 [color="#94a3b8", weight=1];
+  message_documents_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<used_purpose : text>];
+  message_documents -- message_documents_a3 [color="#94a3b8", weight=1];
+  quiz_reviews [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>QUIZ_REVIEWS</B><BR/><FONT POINT-SIZE="12">Đánh giá tham khảo lượt làm quiz</FONT>>];
+  quiz_reviews_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  quiz_reviews -- quiz_reviews_a0 [color="#94a3b8", weight=1];
+  quiz_reviews_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<client_session_id : uuid [FK]>];
+  quiz_reviews -- quiz_reviews_a1 [color="#94a3b8", weight=1];
+  quiz_reviews_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<course_id : text>];
+  quiz_reviews -- quiz_reviews_a2 [color="#94a3b8", weight=1];
+  quiz_reviews_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<external_quiz_id : text>];
+  quiz_reviews -- quiz_reviews_a3 [color="#94a3b8", weight=1];
+  quiz_reviews_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<quiz_title : text>];
+  quiz_reviews -- quiz_reviews_a4 [color="#94a3b8", weight=1];
+  quiz_reviews_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<portal_attempt_id : text ?>];
+  quiz_reviews -- quiz_reviews_a5 [color="#94a3b8", weight=1];
+  quiz_reviews_a6 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<quiz_status : text>];
+  quiz_reviews -- quiz_reviews_a6 [color="#94a3b8", weight=1];
+  quiz_reviews_a7 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<data_source : text>];
+  quiz_reviews -- quiz_reviews_a7 [color="#94a3b8", weight=1];
+  quiz_reviews_a8 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<used_data_categories : text[]>];
+  quiz_reviews -- quiz_reviews_a8 [color="#94a3b8", weight=1];
+  quiz_reviews_a9 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<is_complete_attempt : boolean>];
+  quiz_reviews -- quiz_reviews_a9 [color="#94a3b8", weight=1];
+  quiz_reviews_a10 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<official_total_score : numeric ?>];
+  quiz_reviews -- quiz_reviews_a10 [color="#94a3b8", weight=1];
+  quiz_reviews_a11 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<ai_estimated_total_score : numeric ?>];
+  quiz_reviews -- quiz_reviews_a11 [color="#94a3b8", weight=1];
+  quiz_reviews_a12 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<portal_official_score : numeric ?>];
+  quiz_reviews -- quiz_reviews_a12 [color="#94a3b8", weight=1];
+  quiz_reviews_a13 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<portal_max_score : numeric ?>];
+  quiz_reviews -- quiz_reviews_a13 [color="#94a3b8", weight=1];
+  quiz_reviews_a14 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<has_complete_rubric : boolean>];
+  quiz_reviews -- quiz_reviews_a14 [color="#94a3b8", weight=1];
+  quiz_reviews_a15 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<assessment_status : text>];
+  quiz_reviews -- quiz_reviews_a15 [color="#94a3b8", weight=1];
+  quiz_reviews_a16 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<assessment_limitations : text ?>];
+  quiz_reviews -- quiz_reviews_a16 [color="#94a3b8", weight=1];
+  quiz_reviews_a17 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<disclaimer : text>];
+  quiz_reviews -- quiz_reviews_a17 [color="#94a3b8", weight=1];
+  quiz_reviews_a18 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<created_at : timestamptz>];
+  quiz_reviews -- quiz_reviews_a18 [color="#94a3b8", weight=1];
+  quiz_review_items [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>QUIZ_REVIEW_ITEMS</B><BR/><FONT POINT-SIZE="12">Câu hỏi và kết quả đánh giá</FONT>>];
+  quiz_review_items_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  quiz_review_items -- quiz_review_items_a0 [color="#94a3b8", weight=1];
+  quiz_review_items_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<review_id : uuid [FK]>];
+  quiz_review_items -- quiz_review_items_a1 [color="#94a3b8", weight=1];
+  quiz_review_items_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<topic_id : uuid [FK] ?>];
+  quiz_review_items -- quiz_review_items_a2 [color="#94a3b8", weight=1];
+  quiz_review_items_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<question_number : integer>];
+  quiz_review_items -- quiz_review_items_a3 [color="#94a3b8", weight=1];
+  quiz_review_items_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<question_type : text>];
+  quiz_review_items -- quiz_review_items_a4 [color="#94a3b8", weight=1];
+  quiz_review_items_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<question_text : text>];
+  quiz_review_items -- quiz_review_items_a5 [color="#94a3b8", weight=1];
+  quiz_review_items_a6 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<student_answer : text>];
+  quiz_review_items -- quiz_review_items_a6 [color="#94a3b8", weight=1];
+  quiz_review_items_a7 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<correct_answer_or_rubric : text ?>];
+  quiz_review_items -- quiz_review_items_a7 [color="#94a3b8", weight=1];
+  quiz_review_items_a8 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<official_points : numeric>];
+  quiz_review_items -- quiz_review_items_a8 [color="#94a3b8", weight=1];
+  quiz_review_items_a9 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<max_points : numeric>];
+  quiz_review_items -- quiz_review_items_a9 [color="#94a3b8", weight=1];
+  quiz_review_items_a10 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<ai_estimated_points : numeric ?>];
+  quiz_review_items -- quiz_review_items_a10 [color="#94a3b8", weight=1];
+  quiz_review_items_a11 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<is_discrepant : boolean ?>];
+  quiz_review_items -- quiz_review_items_a11 [color="#94a3b8", weight=1];
+  quiz_review_items_a12 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<explanation : text>];
+  quiz_review_items -- quiz_review_items_a12 [color="#94a3b8", weight=1];
+  quiz_review_items_a13 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<assessment_limitations : text ?>];
+  quiz_review_items -- quiz_review_items_a13 [color="#94a3b8", weight=1];
+  knowledge_topics [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>KNOWLEDGE_TOPICS</B><BR/><FONT POINT-SIZE="12">Chủ đề kiến thức thuộc phiên và môn</FONT>>];
+  knowledge_topics_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  knowledge_topics -- knowledge_topics_a0 [color="#94a3b8", weight=1];
+  knowledge_topics_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<client_session_id : uuid [FK]>];
+  knowledge_topics -- knowledge_topics_a1 [color="#94a3b8", weight=1];
+  knowledge_topics_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<course_id : text>];
+  knowledge_topics -- knowledge_topics_a2 [color="#94a3b8", weight=1];
+  knowledge_topics_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<name : text>];
+  knowledge_topics -- knowledge_topics_a3 [color="#94a3b8", weight=1];
+  knowledge_topics_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<description : text ?>];
+  knowledge_topics -- knowledge_topics_a4 [color="#94a3b8", weight=1];
+  grade_goals [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>GRADE_GOALS</B><BR/><FONT POINT-SIZE="12">Mục tiêu điểm số</FONT>>];
+  grade_goals_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  grade_goals -- grade_goals_a0 [color="#94a3b8", weight=1];
+  grade_goals_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<client_session_id : uuid [FK]>];
+  grade_goals -- grade_goals_a1 [color="#94a3b8", weight=1];
+  grade_goals_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<course_id : text>];
+  grade_goals -- grade_goals_a2 [color="#94a3b8", weight=1];
+  grade_goals_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<scope_type : text>];
+  grade_goals -- grade_goals_a3 [color="#94a3b8", weight=1];
+  grade_goals_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<quiz_group_id : text ?>];
+  grade_goals -- grade_goals_a4 [color="#94a3b8", weight=1];
+  grade_goals_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<target_score : numeric>];
+  grade_goals -- grade_goals_a5 [color="#94a3b8", weight=1];
+  grade_goals_a6 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<max_scale : numeric>];
+  grade_goals -- grade_goals_a6 [color="#94a3b8", weight=1];
+  grade_goals_a7 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<grading_rule : text>];
+  grade_goals -- grade_goals_a7 [color="#94a3b8", weight=1];
+  grade_goals_a8 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<data_source : text>];
+  grade_goals -- grade_goals_a8 [color="#94a3b8", weight=1];
+  grade_goals_a9 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<updated_at : timestamptz>];
+  grade_goals -- grade_goals_a9 [color="#94a3b8", weight=1];
+  learning_analyses [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>LEARNING_ANALYSES</B><BR/><FONT POINT-SIZE="12">Kết quả phân tích học tập</FONT>>];
+  learning_analyses_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  learning_analyses -- learning_analyses_a0 [color="#94a3b8", weight=1];
+  learning_analyses_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<client_session_id : uuid [FK]>];
+  learning_analyses -- learning_analyses_a1 [color="#94a3b8", weight=1];
+  learning_analyses_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<course_id : text>];
+  learning_analyses -- learning_analyses_a2 [color="#94a3b8", weight=1];
+  learning_analyses_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<focus_topic : text ?>];
+  learning_analyses -- learning_analyses_a3 [color="#94a3b8", weight=1];
+  learning_analyses_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<has_sufficient_data : boolean>];
+  learning_analyses -- learning_analyses_a4 [color="#94a3b8", weight=1];
+  learning_analyses_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<data_limitations : text ?>];
+  learning_analyses -- learning_analyses_a5 [color="#94a3b8", weight=1];
+  learning_analyses_a6 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<created_at : timestamptz>];
+  learning_analyses -- learning_analyses_a6 [color="#94a3b8", weight=1];
+  learning_evidence [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>LEARNING_EVIDENCE</B><BR/><FONT POINT-SIZE="12">Bằng chứng chi tiết đã dùng để phân tích</FONT>>];
+  learning_evidence_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  learning_evidence -- learning_evidence_a0 [color="#94a3b8", weight=1];
+  learning_evidence_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<analysis_id : uuid [FK]>];
+  learning_evidence -- learning_evidence_a1 [color="#94a3b8", weight=1];
+  learning_evidence_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<external_quiz_id : text>];
+  learning_evidence -- learning_evidence_a2 [color="#94a3b8", weight=1];
+  learning_evidence_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<portal_attempt_id : text ?>];
+  learning_evidence -- learning_evidence_a3 [color="#94a3b8", weight=1];
+  learning_evidence_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<question_number : integer>];
+  learning_evidence -- learning_evidence_a4 [color="#94a3b8", weight=1];
+  learning_evidence_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<topic_name : text ?>];
+  learning_evidence -- learning_evidence_a5 [color="#94a3b8", weight=1];
+  learning_evidence_a6 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<question_text : text>];
+  learning_evidence -- learning_evidence_a6 [color="#94a3b8", weight=1];
+  learning_evidence_a7 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<student_answer : text>];
+  learning_evidence -- learning_evidence_a7 [color="#94a3b8", weight=1];
+  learning_evidence_a8 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<official_points : numeric>];
+  learning_evidence -- learning_evidence_a8 [color="#94a3b8", weight=1];
+  learning_evidence_a9 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<max_points : numeric>];
+  learning_evidence -- learning_evidence_a9 [color="#94a3b8", weight=1];
+  learning_evidence_a10 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<data_source : text>];
+  learning_evidence -- learning_evidence_a10 [color="#94a3b8", weight=1];
+  learning_evidence_a11 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<used_data_categories : text[]>];
+  learning_evidence -- learning_evidence_a11 [color="#94a3b8", weight=1];
+  learning_recommendations [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>LEARNING_RECOMMENDATIONS</B><BR/><FONT POINT-SIZE="12">Gợi ý cải thiện học tập</FONT>>];
+  learning_recommendations_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>id : uuid [PK]</U>>];
+  learning_recommendations -- learning_recommendations_a0 [color="#94a3b8", weight=1];
+  learning_recommendations_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<analysis_id : uuid [FK]>];
+  learning_recommendations -- learning_recommendations_a1 [color="#94a3b8", weight=1];
+  learning_recommendations_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<topic_id : uuid [FK]>];
+  learning_recommendations -- learning_recommendations_a2 [color="#94a3b8", weight=1];
+  learning_recommendations_a3 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<priority_rank : integer>];
+  learning_recommendations -- learning_recommendations_a3 [color="#94a3b8", weight=1];
+  learning_recommendations_a4 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<weakness_reason : text>];
+  learning_recommendations -- learning_recommendations_a4 [color="#94a3b8", weight=1];
+  learning_recommendations_a5 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<study_advice : text>];
+  learning_recommendations -- learning_recommendations_a5 [color="#94a3b8", weight=1];
+  learning_recommendations_a6 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<observed_evidence : jsonb>];
+  learning_recommendations -- learning_recommendations_a6 [color="#94a3b8", weight=1];
+  learning_recommendations_a7 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<ai_inference : text>];
+  learning_recommendations -- learning_recommendations_a7 [color="#94a3b8", weight=1];
+  learning_recommendations_a8 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<related_document_id : uuid [FK] ?>];
+  learning_recommendations -- learning_recommendations_a8 [color="#94a3b8", weight=1];
+  learning_recommendations_a9 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<related_document_title : text ?>];
+  learning_recommendations -- learning_recommendations_a9 [color="#94a3b8", weight=1];
+  learning_recommendations_a10 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<related_document_note : text ?>];
+  learning_recommendations -- learning_recommendations_a10 [color="#94a3b8", weight=1];
+  analysis_documents [shape=box, fillcolor="#dbeafe", margin="0.14,0.10", label=<<B>ANALYSIS_DOCUMENTS</B><BR/><FONT POINT-SIZE="12">Toàn bộ tài liệu đã dùng để phân tích</FONT>>];
+  analysis_documents_a0 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>analysis_id : uuid [PK, FK]</U>>];
+  analysis_documents -- analysis_documents_a0 [color="#94a3b8", weight=1];
+  analysis_documents_a1 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<<U>document_id : uuid [PK, FK]</U>>];
+  analysis_documents -- analysis_documents_a1 [color="#94a3b8", weight=1];
+  analysis_documents_a2 [shape=ellipse, fillcolor="#fef3c7", fontsize=11, margin="0.10,0.04", label=<source_revision_snapshot : text ?>];
+  analysis_documents -- analysis_documents_a2 [color="#94a3b8", weight=1];
+  rel_1 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="CẤP / THU HỒI"];
+  client_sessions -- rel_1 [label="1", weight=4];
+  rel_1 -- data_consents [label="0..N", weight=4];
+  rel_2 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="GIỚI HẠN MÔN"];
+  data_consents -- rel_2 [label="1", weight=4];
+  rel_2 -- consent_courses [label="0..N", weight=4];
+  rel_3 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="SỞ HỮU TÀI LIỆU"];
+  client_sessions -- rel_3 [label="1", weight=4];
+  rel_3 -- documents [label="0..N", weight=4];
+  rel_4 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="KIỂM TRA NGUỒN"];
+  documents -- rel_4 [label="1", weight=4];
+  rel_4 -- document_access [label="0..1", weight=4];
+  rel_5 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="CHIA ĐOẠN"];
+  documents -- rel_5 [label="1", weight=4];
+  rel_5 -- document_chunks [label="0..N", weight=4];
+  rel_6 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="SỞ HỮU HỘI THOẠI"];
+  client_sessions -- rel_6 [label="1", weight=4];
+  rel_6 -- chat_sessions [label="0..N", weight=4];
+  rel_7 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="CHỨA"];
+  chat_sessions -- rel_7 [label="1", weight=4];
+  rel_7 -- chat_messages [label="0..N", weight=4];
+  rel_8 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="TRÍCH DẪN"];
+  chat_messages -- rel_8 [label="1", weight=4];
+  rel_8 -- chat_citations [label="0..N", weight=4];
+  rel_9 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="ĐƯỢC TRỎ TỚI"];
+  document_chunks -- rel_9 [label="1", weight=4];
+  rel_9 -- chat_citations [label="0..N", weight=4];
+  rel_10 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="DÙNG NGUỒN"];
+  chat_messages -- rel_10 [label="1", weight=4];
+  rel_10 -- message_documents [label="0..N", weight=4];
+  rel_11 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="NGUỒN TIN NHẮN"];
+  documents -- rel_11 [label="1", weight=4];
+  rel_11 -- message_documents [label="0..N", weight=4];
+  rel_12 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="YÊU CẦU ĐÁNH GIÁ"];
+  client_sessions -- rel_12 [label="1", weight=4];
+  rel_12 -- quiz_reviews [label="0..N", weight=4];
+  rel_13 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="GỒM CÁC CÂU"];
+  quiz_reviews -- rel_13 [label="1", weight=4];
+  rel_13 -- quiz_review_items [label="1..N", weight=4];
+  rel_14 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="SỞ HỮU CHỦ ĐỀ"];
+  client_sessions -- rel_14 [label="1", weight=4];
+  rel_14 -- knowledge_topics [label="0..N", weight=4];
+  rel_15 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="PHÂN LOẠI"];
+  knowledge_topics -- rel_15 [label="0..1", weight=4];
+  rel_15 -- quiz_review_items [label="0..N", weight=4];
+  rel_16 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="ĐẶT MỤC TIÊU"];
+  client_sessions -- rel_16 [label="1", weight=4];
+  rel_16 -- grade_goals [label="0..N", weight=4];
+  rel_17 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="YÊU CẦU PHÂN TÍCH"];
+  client_sessions -- rel_17 [label="1", weight=4];
+  rel_17 -- learning_analyses [label="0..N", weight=4];
+  rel_18 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="DỰA TRÊN"];
+  learning_analyses -- rel_18 [label="1", weight=4];
+  rel_18 -- learning_evidence [label="1..N", weight=4];
+  rel_19 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="ĐỀ XUẤT"];
+  learning_analyses -- rel_19 [label="1", weight=4];
+  rel_19 -- learning_recommendations [label="0..N", weight=4];
+  rel_20 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="ĐỊNH HƯỚNG"];
+  knowledge_topics -- rel_20 [label="1", weight=4];
+  rel_20 -- learning_recommendations [label="0..N", weight=4];
+  rel_21 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="TÀI LIỆU GỢI Ý"];
+  documents -- rel_21 [label="0..1", weight=4];
+  rel_21 -- learning_recommendations [label="0..N", weight=4];
+  rel_22 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="DÙNG TÀI LIỆU"];
+  learning_analyses -- rel_22 [label="1", weight=4];
+  rel_22 -- analysis_documents [label="0..N", weight=4];
+  rel_23 [shape=diamond, fillcolor="#dcfce7", fontsize=11, margin="0.06,0.03", label="NGUỒN PHÂN TÍCH"];
+  documents -- rel_23 [label="1", weight=4];
+  rel_23 -- analysis_documents [label="0..N", weight=4];
+  note_legend [shape=note, fillcolor="#f8fafc", color="#94a3b8", fontsize=12, margin="0.20,0.15", label="CHÚ GIẢI\nChữ nhật: thực thể • Elip: thuộc tính • Thoi: quan hệ\nPK gạch chân • FK: khóa ngoại • UQ: duy nhất • ?: NULL\nID nội bộ: UUID • Mã Portal: text\nThời gian: timestamptz • Điểm: numeric\nvector(D): chốt D theo mô hình embedding, không tự giả định"];
+  note_ownership [shape=note, fillcolor="#f8fafc", color="#94a3b8", fontsize=12, margin="0.20,0.15", label="QUYỀN SỞ HỮU VÀ NGUỒN\nMọi tài nguyên và liên kết phải cùng phiên, đúng môn.\nChỉ lưu token_hash; không lưu token/cookie/mật khẩu Portal.\nConsent cần kiểm tra lại trước khi đọc, lưu và trả kết quả.\nBảng nối nguồn giữ cả tài liệu không được trích dẫn.\nThu hồi quyền chặn cả dữ liệu và nội dung dẫn xuất."];
+  note_lifecycle [shape=note, fillcolor="#f8fafc", color="#94a3b8", fontsize=12, margin="0.20,0.15", label="QUY TẮC CHÍNH\nTài liệu duy nhất theo (owner, course_id, external_doc_id).\nChunks duy nhất theo (document_id, index_generation, chunk_index).\nactive_index_generation chọn chỉ mục mới; giữ chunks cũ cho citation.\nConsent duy nhất theo (owner, data_category, purpose).\nUC07 comment và UC09 tính điểm không lưu đầu vào/kết quả.\nChi tiết CHECK/UNIQUE và enum có trong chú thích file DOT."];
+  note_legend -- note_ownership -- note_lifecycle [style=invis, weight=10];
+}

@@ -1,0 +1,220 @@
+CreateChatSessionRequest:
+  type: object
+  required:
+  - mode
+  properties:
+    course_id:
+      type: string
+      example: INT3306
+      minLength: 1
+      description: Mã môn Portal; bắt buộc không rỗng với COURSE_CONTEXT; bỏ trống hoặc null với GENERAL.
+      nullable: true
+    course_name:
+      type: string
+      nullable: true
+      example: Kiến trúc hướng dịch vụ
+    mode:
+      type: string
+      enum:
+      - GENERAL
+      - COURSE_CONTEXT
+  description: GENERAL không dùng dữ liệu Portal. COURSE_CONTEXT chỉ chọn môn; quyền tài liệu được kiểm tra khi
+    thực hiện RAG. Backend kiểm tra mode/course_id/course_name nhất quán.
+  oneOf:
+  - required:
+    - mode
+    properties:
+      mode:
+        type: string
+        enum:
+        - GENERAL
+      course_id:
+        type: string
+        nullable: true
+        not:
+          type: string
+      course_name:
+        type: string
+        nullable: true
+        not:
+          type: string
+  - required:
+    - mode
+    - course_id
+    properties:
+      mode:
+        type: string
+        enum:
+        - COURSE_CONTEXT
+      course_id:
+        type: string
+        minLength: 1
+  example:
+    mode: GENERAL
+ChatSession:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+    course_id:
+      type: string
+      nullable: true
+      example: INT3306
+      description: Mã môn Portal với COURSE_CONTEXT; null với GENERAL và MULTI_COURSE_SUMMARY.
+    course_name:
+      type: string
+      nullable: true
+      description: Tên môn nếu COURSE_CONTEXT và có thông tin; null với GENERAL hoặc MULTI_COURSE_SUMMARY.
+    created_at:
+      type: string
+      format: date-time
+    mode:
+      type: string
+      enum:
+      - GENERAL
+      - COURSE_CONTEXT
+      - MULTI_COURSE_SUMMARY
+  required:
+  - id
+  - course_id
+  - course_name
+  - created_at
+  - mode
+SendMessageRequest:
+  type: object
+  required:
+  - content
+  properties:
+    content:
+      type: string
+      example: Sự khác biệt chính giữa REST và SOAP là gì?
+      minLength: 1
+    document_ids:
+      type: array
+      items:
+        type: string
+        format: uuid
+      minItems: 1
+      uniqueItems: true
+      description: ID tài liệu đã kiểm tra quyền nguồn. Backend kiểm tra owner, consent và DOCUMENT_ACCESS; ID không
+        chứng minh quyền Portal. Bắt buộc trong COURSE_CONTEXT; không gửi trong GENERAL.
+  example:
+    content: REST và SOAP khác nhau như thế nào?
+ChatCitation:
+  type: object
+  properties:
+    chunk_id:
+      type: string
+      format: uuid
+    document_title:
+      type: string
+      example: Bài giảng Tuần 2 - Web Services.pdf
+    quoted_snippet:
+      type: string
+    location_label:
+      type: string
+      nullable: true
+      example: Slide 18
+    document_id:
+      type: string
+      format: uuid
+  required:
+  - chunk_id
+  - document_title
+  - quoted_snippet
+  - location_label
+  - document_id
+ChatMessageResponse:
+  type: object
+  description: Message SUMMARY lưu và trả lại nguyên is_partial_content và coverage_note từ kết quả tóm tắt, kể cả khi lấy lịch sử.
+  properties:
+    id:
+      type: string
+      format: uuid
+    role:
+      type: string
+      enum:
+      - USER
+      - ASSISTANT
+      example: ASSISTANT
+    content:
+      type: string
+    has_external_knowledge:
+      type: boolean
+      description: True nếu phản hồi có kiến thức LLM ngoài tài liệu. Với GENERAL, câu trả lời không được coi là
+        dữ liệu Portal; citations=[]. Với USER, false và citations=[].
+      example: false
+    citations:
+      type: array
+      items:
+        $ref: chat.yaml#/ChatCitation
+    created_at:
+      type: string
+      format: date-time
+    answer_status:
+      type: string
+      nullable: true
+      anyOf:
+      - type: string
+        enum:
+        - ANSWERED
+        - INSUFFICIENT_CONTEXT
+      - type: string
+        nullable: true
+        not:
+          type: string
+    message_type:
+      type: string
+      enum:
+      - CHAT
+      - SUMMARY
+    external_knowledge_note:
+      type: string
+      nullable: true
+      description: Nêu phần kiến thức ngoài nguồn; null nếu không có. GENERAL ghi rõ không dựa trên tài liệu Portal.
+    is_partial_content:
+      type: boolean
+      description: Với SUMMARY, giữ giá trị từ SummarizeResponse; với CHAT luôn false.
+    coverage_note:
+      type: string
+      nullable: true
+      description: Với SUMMARY, giữ ghi chú phạm vi từ SummarizeResponse; với CHAT luôn null.
+  required:
+  - id
+  - role
+  - content
+  - has_external_knowledge
+  - citations
+  - created_at
+  - answer_status
+  - message_type
+  - external_knowledge_note
+  - is_partial_content
+  - coverage_note
+  oneOf:
+  - required:
+    - message_type
+    properties:
+      message_type:
+        type: string
+        enum: [CHAT]
+      is_partial_content:
+        type: boolean
+        enum: [false]
+      coverage_note:
+        type: string
+        nullable: true
+        enum: [null]
+  - required:
+    - message_type
+    properties:
+      message_type:
+        type: string
+        enum: [SUMMARY]
+      role:
+        type: string
+        enum: [ASSISTANT]
+      coverage_note:
+        type: string
+        minLength: 1
