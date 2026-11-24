@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "student-assistant-api"
+version = "0.1.0"
+description = "Flask backend scaffold for AI Student Assistant"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "Flask>=3.1,<4",
+  "Flask-SQLAlchemy>=3.1,<4",
+  "Flask-Migrate>=4,<5",
+  "psycopg[binary]>=3.1,<4",
+  "pgvector>=0.3,<1",
+  "python-dotenv>=1,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["student_assistant*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

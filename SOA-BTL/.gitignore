@@ -1,0 +1,42 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# Dependencies and build output (enable the chosen stack later)
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+target/
+dist/
+build/
+*.tsbuildinfo
+*.egg-info/
+instance/
+
+# Test output, logs, and local data
+coverage/
+.coverage
+htmlcov/
+test-results/
+playwright-report/
+*.log
+logs/
+tmp/
+uploads/
+postgres-data/
+
+# Editor and operating system files
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+Desktop.ini
