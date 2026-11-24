@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from flask import Flask
 
 from .api import register_blueprints
+from .api.docs import register_api_docs
 from .config import get_config
 from .extensions import db, migrate
 
@@ -30,4 +31,5 @@ def create_app(config: dict | None = None) -> Flask:
 
     migrate.init_app(app, db, directory="migrations")
     register_blueprints(app)
+    register_api_docs(app)
     return app

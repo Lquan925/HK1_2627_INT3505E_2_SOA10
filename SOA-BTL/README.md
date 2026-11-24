@@ -42,11 +42,29 @@ Mỗi thư mục nghiệp vụ chứa `api.py`, `service.py`, `schemas.py`; modu
 
 Mỗi thành viên nhận một thư mục trong `modules/` và phần UI tương ứng. Backend vẫn là một ứng dụng Flask, các module dùng chung cơ sở dữ liệu và hạ tầng AI.
 
-## Bắt đầu
+## Chạy nhanh cho cả nhóm bằng Docker
+
+Cài Docker Desktop, bật chế độ Linux containers và mở terminal tại thư mục gốc của repo:
+
+```sh
+docker compose up --build -d
+```
+
+- Swagger UI: [http://localhost:8000/docs/](http://localhost:8000/docs/).
+- Đặc tả OpenAPI: [http://localhost:8000/openapi/openapi.yaml](http://localhost:8000/openapi/openapi.yaml).
+- PostgreSQL có pgvector: `localhost:5432`; database và tài khoản mặc định là `ai_student_assistant`, mật khẩu phát triển là `student_assistant_local`.
+
+Không cần cài Python, PostgreSQL hoặc Node.js trên máy khi chạy bằng Docker. Lần đầu Docker tải image và cài phụ thuộc. Backend chờ PostgreSQL sẵn sàng rồi khởi động; dữ liệu database được giữ trong volume khi dừng container.
+
+Nếu cổng 8000 hoặc 5432 đang được sử dụng, sao chép `.env.docker.example` thành `.env` ở thư mục gốc rồi đổi `API_PORT` hoặc `POSTGRES_PORT`. Ví dụ `API_PORT=8001` thì mở `http://localhost:8001/docs/`. File `backend/.env` dành cho chạy Python cục bộ, không được dùng làm cấu hình Docker.
+
+Xem [hướng dẫn Docker](infrastructure/docker/README.md) để đọc log, chạy test, quản lý database và cập nhật mã nguồn. Các endpoint nghiệp vụ vẫn đang là khung, chưa được triển khai.
+
+## Phối hợp phát triển
 
 1. Nhận module tại [bảng chia việc](docs/modules.md), xem [kiến trúc](docs/architecture.md) và [UC01–UC10](docs/use-cases.md).
 2. Cài và chạy theo [backend/README.md](backend/README.md).
-3. Chốt request/response tại `backend/openapi/student_assistant.yaml` và message tại `contracts/extension-messages/` trước khi ghép UI/backend.
+3. Chốt request/response tại [OpenAPI](backend/openapi/openapi_modular/openapi_modular/openapi.yaml) và message tại `contracts/extension-messages/` trước khi ghép UI/backend. Xem [hướng dẫn bundle/lint](backend/openapi/openapi_modular/openapi_modular/README.md).
 4. Thêm nghiệp vụ và kiểm thử trong module mình nhận; phối hợp khi đổi cấu hình chung, đăng ký Blueprint hoặc migration.
 
 Đây là scaffold: chưa có API nghiệp vụ, model bảng dữ liệu, provider AI hoặc extension cài chạy được. Chỉ xử lý dữ liệu Portal sau cấp quyền; không thu mật khẩu/token Portal, không tự sửa điểm hay gửi comment. API key AI đặt ở backend. RAG phải giới hạn theo người dùng/môn và trích dẫn nguồn có thật; tính điểm dùng công thức và trọng số thực tế.

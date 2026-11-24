@@ -1,0 +1,64 @@
+name: student-assistant
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: runtime
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    environment:
+      # Không dùng DATABASE_URL của backend/.env khi chạy trong container.
+      DATABASE_URL: ""
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-ai_student_assistant}
+      DB_USER: ${POSTGRES_USER:-ai_student_assistant}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-student_assistant_local}
+      SECRET_KEY: ${SECRET_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      AI_REQUEST_TIMEOUT_SECONDS: ${AI_REQUEST_TIMEOUT_SECONDS:-30}
+      AI_MAX_RETRIES: ${AI_MAX_RETRIES:-2}
+    depends_on:
+      db:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+
+  db:
+    image: pgvector/pgvector:0.8.7-pg17-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ai_student_assistant}
+      POSTGRES_USER: ${POSTGRES_USER:-ai_student_assistant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-student_assistant_local}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  tests:
+    profiles: [test]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: test
+    environment:
+      DATABASE_URL: sqlite://
+    init: true
+
+volumes:
+  postgres_data:

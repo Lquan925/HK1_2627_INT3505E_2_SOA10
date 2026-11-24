@@ -1,0 +1,3 @@
+# Bao gồm phụ thuộc chạy ứng dụng và phụ thuộc kiểm thử.
+# Danh sách phiên bản được quản lý tại pyproject.toml.
+-e .[dev]
