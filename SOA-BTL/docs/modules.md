@@ -11,7 +11,7 @@
 | Quiz Review (UC06) | `modules/quiz_review/api.py`, `modules/quiz_review/service.py`, `modules/quiz_review/repository.py`, `modules/quiz_review/models.py`, UI `features/quiz-review/` | Đối chiếu đáp án/rubric, phân tích chênh lệch, lưu kết quả tham khảo | Chưa phân công |
 | Grade Planning (UC08–09) | `modules/grade_planning/api.py`, `modules/grade_planning/service.py`, `modules/grade_planning/repository.py`, `modules/grade_planning/models.py`, UI `features/grade-planning/` | Lưu mục tiêu, tính điểm còn thiếu và tính khả thi từ trọng số thực | Chưa phân công |
 | Comment Suggestion (UC07) | `modules/comments/api.py`, `modules/comments/service.py`, UI `features/comments/` | Tạo/viết lại bản nháp có căn cứ từ review; sửa/sao chép, sinh viên tự gửi | Chưa phân công |
-| Learning Recommendation (UC10) | `modules/recommendations/api.py`, `modules/recommendations/service.py`, UI `features/recommendations/` | Chủ đề ưu tiên ôn từ lỗi chi tiết và nguồn tài liệu; báo thiếu dữ liệu | Chưa phân công |
+| Learning Recommendation (UC10) | `modules/recommendations/api.py`, `modules/recommendations/service.py`, `modules/recommendations/models.py`, UI `features/recommendations/` | Chủ đề ưu tiên ôn từ lỗi chi tiết và nguồn tài liệu; lưu phân tích/bằng chứng/đề xuất, báo thiếu dữ liệu | Chưa phân công |
 | AI Integration | `integrations/llm.py`, `integrations/embeddings.py` | Interface provider dùng chung, timeout/retry và lỗi; API key ở backend | Chưa phân công |
 | Database & hạ tầng | `extensions.py`, `migrations/`, `infrastructure/` | PostgreSQL + pgvector, migration, hướng dẫn môi trường chạy | Chưa phân công |
 
@@ -32,4 +32,6 @@ Các đường dẫn backend ở trên tính từ `backend/src/student_assistant
 - Có kiểm thử luồng chính và lỗi đặc thù của module khi đã có nghiệp vụ.
 - Hướng dẫn cách chạy và giới hạn còn lại; UI phân biệt kết quả AI với dữ liệu chính thức.
 
-Hiện repo là scaffold để chia việc. Chưa có API nghiệp vụ, model dữ liệu, provider AI hay extension có thể cài chạy.
+Phần database đã có 18 model, migration `0001_initial` và seed phát triển; xem [database](database.md). Các chủ module bổ sung nghiệp vụ/repository trên model hiện có và phối hợp revision mới với người phụ trách nền tảng. Seed chạy lại giữ nguyên bản ghi hiện có, chưa tạo embedding hoặc câu trả lời AI.
+
+API nghiệp vụ, xác thực/phân quyền tại API, provider AI và Extension cài chạy được vẫn cần triển khai. Database không tự thực hiện kiểm tra token, consent hiện hành hoặc quyền Portal. Chiều vector và provider embedding cần được nhóm chốt trước khi thêm ANN index.

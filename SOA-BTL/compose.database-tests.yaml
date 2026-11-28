@@ -1,0 +1,14 @@
+# Run with: docker compose -f compose.yaml -f compose.database-tests.yaml run --rm tests
+# Tests create/drop random schemas only. Application tables are preserved.
+services:
+  tests:
+    environment:
+      DATABASE_URL: sqlite://
+      TEST_DB_HOST: db
+      TEST_DB_PORT: "5432"
+      TEST_DB_NAME: ${POSTGRES_DB:-ai_student_assistant}
+      TEST_DB_USER: ${POSTGRES_USER:-ai_student_assistant}
+      TEST_DB_PASSWORD: ${POSTGRES_PASSWORD:-student_assistant_local}
+    depends_on:
+      db:
+        condition: service_healthy

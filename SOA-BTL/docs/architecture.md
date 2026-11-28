@@ -4,6 +4,8 @@ Nguồn: phần kiến trúc và yêu cầu từng module trong [tài liệu SOA
 
 Backend Flask là một ứng dụng phân tầng, gồm sáu module nghiệp vụ. Mỗi module có API, service và repository liên quan để một thành viên có thể nhận trọn luồng. Các service hiện là file khung, chưa có xử lý nghiệp vụ.
 
+Tầng dữ liệu đã có 18 model theo ERD, migration `0001_initial` và seed phát triển. Cần chạy migration trên PostgreSQL để tạo bảng. Các bảng phiên/consent và ràng buộc database chưa thay thế xác thực/phân quyền ở API; các route, repository, AI client và Extension vẫn cần triển khai.
+
 ```mermaid
 flowchart LR
     Portal[University Portal] --> Content[Content Script]
@@ -39,6 +41,8 @@ flowchart LR
 - Integration đóng gói provider; service không tự giữ API key hay tự viết HTTP client cho từng chức năng.
 - UI gọi backend qua Service Worker; đọc Portal qua Content Script và chỉ sau consent.
 - Comment dùng kết quả Quiz Review; Recommendation dùng dữ liệu quiz chi tiết và tài liệu. Thống nhất dữ liệu trao đổi trước khi ghép module.
+- Recommendation sở hữu dữ liệu phân tích, bằng chứng, chủ đề và đề xuất; các bảng nối lưu cả tài liệu nguồn không xuất hiện trong citation. Comment và phép tính điểm không lưu kết quả riêng.
+- Chunk dùng `vector` chưa cố định chiều. Service phải lọc cùng embedding model/chiều với truy vấn; chọn provider và D trước khi tạo ANN index bằng migration tiếp theo.
 
 ## Luồng chính
 
@@ -50,4 +54,4 @@ flowchart LR
 
 Không lấy mật khẩu/token phiên Portal, không tự sửa điểm hoặc gửi comment. Thu hồi quyền phải chặn lần đọc tiếp theo và ngừng tác vụ phụ thuộc quyền đó. Xác thực, validation, consent enforcement và truy vấn theo quyền vẫn cần triển khai; cấu trúc thư mục chưa cung cấp các cơ chế này.
 
-Xem [bảng chia việc](modules.md) và [ánh xạ use case](use-cases.md).
+Xem [database và migration](database.md), [bảng chia việc](modules.md) và [ánh xạ use case](use-cases.md).
