@@ -38,7 +38,7 @@ docs/                      # Kiến trúc, use case và bảng nhận module
 tests/e2e/                 # Kiểm thử xuyên suốt
 ```
 
-Mỗi thư mục nghiệp vụ chứa `api.py`, `service.py`, `schemas.py`; module có dữ liệu riêng có thêm `repository.py`, `models.py`. Document sở hữu `vector_repository.py` để Chat tái sử dụng. Comment và Recommendation dùng dữ liệu từ các module khác, chưa cần bảng riêng.
+Mỗi thư mục nghiệp vụ chứa `api.py`, `service.py`, `schemas.py`; module có dữ liệu riêng có thêm `repository.py`, `models.py`. Document sở hữu `vector_repository.py` để Chat tái sử dụng. Recommendation sở hữu bảng phân tích, bằng chứng, chủ đề và đề xuất; Comment sinh kết quả tức thời nên không có bảng riêng. Các model hiện mô tả đủ 18 bảng theo ERD, kèm migration đầu tiên `0001_initial`.
 
 Mỗi thành viên nhận một thư mục trong `modules/` và phần UI tương ứng. Backend vẫn là một ứng dụng Flask, các module dùng chung cơ sở dữ liệu và hạ tầng AI.
 
@@ -48,17 +48,23 @@ Cài Docker Desktop, bật chế độ Linux containers và mở terminal tại 
 
 ```sh
 docker compose up --build -d
+docker compose exec backend python -m flask --app wsgi:app db upgrade
+docker compose exec backend python -m flask --app wsgi:app db current
+# Tùy chọn: thêm dữ liệu phát triển mẫu, giữ nguyên bản ghi đã tồn tại.
+docker compose exec backend python -m flask --app wsgi:app db-seed-demo
 ```
 
 - Swagger UI: [http://localhost:8000/docs/](http://localhost:8000/docs/).
 - Đặc tả OpenAPI: [http://localhost:8000/openapi/openapi.yaml](http://localhost:8000/openapi/openapi.yaml).
 - PostgreSQL có pgvector: `localhost:5432`; database và tài khoản mặc định là `ai_student_assistant`, mật khẩu phát triển là `student_assistant_local`.
 
-Không cần cài Python, PostgreSQL hoặc Node.js trên máy khi chạy bằng Docker. Lần đầu Docker tải image và cài phụ thuộc. Backend chờ PostgreSQL sẵn sàng rồi khởi động; dữ liệu database được giữ trong volume khi dừng container.
+Không cần cài Python, PostgreSQL hoặc Node.js trên máy khi chạy bằng Docker. Lần đầu Docker tải image và cài phụ thuộc. Backend chờ PostgreSQL sẵn sàng rồi khởi động; cần chạy `db upgrade` để tạo bảng. Dữ liệu database được giữ trong volume khi dừng container. Seed chỉ là fixture phát triển: tài liệu ở trạng thái `PENDING`, không có vector hay câu trả lời AI giả và không cung cấp token đăng nhập.
 
 Nếu cổng 8000 hoặc 5432 đang được sử dụng, sao chép `.env.docker.example` thành `.env` ở thư mục gốc rồi đổi `API_PORT` hoặc `POSTGRES_PORT`. Ví dụ `API_PORT=8001` thì mở `http://localhost:8001/docs/`. File `backend/.env` dành cho chạy Python cục bộ, không được dùng làm cấu hình Docker.
 
 Xem [hướng dẫn Docker](infrastructure/docker/README.md) để đọc log, chạy test, quản lý database và cập nhật mã nguồn. Các endpoint nghiệp vụ vẫn đang là khung, chưa được triển khai.
+
+Xem [thiết kế database](docs/database.md) để biết bảng của từng module, khóa ngoại và cách đổi schema. Cột embedding dùng `vector` chưa cố định chiều; nhóm cần chốt model/kích thước trước khi thêm chỉ mục ANN và luôn lọc cùng model/chiều khi truy vấn.
 
 ## Phối hợp phát triển
 
@@ -67,4 +73,4 @@ Xem [hướng dẫn Docker](infrastructure/docker/README.md) để đọc log, c
 3. Chốt request/response tại [OpenAPI](backend/openapi/openapi_modular/openapi_modular/openapi.yaml) và message tại `contracts/extension-messages/` trước khi ghép UI/backend. Xem [hướng dẫn bundle/lint](backend/openapi/openapi_modular/openapi_modular/README.md).
 4. Thêm nghiệp vụ và kiểm thử trong module mình nhận; phối hợp khi đổi cấu hình chung, đăng ký Blueprint hoặc migration.
 
-Đây là scaffold: chưa có API nghiệp vụ, model bảng dữ liệu, provider AI hoặc extension cài chạy được. Chỉ xử lý dữ liệu Portal sau cấp quyền; không thu mật khẩu/token Portal, không tự sửa điểm hay gửi comment. API key AI đặt ở backend. RAG phải giới hạn theo người dùng/môn và trích dẫn nguồn có thật; tính điểm dùng công thức và trọng số thực tế.
+Phần database đã có model, migration và seed; API nghiệp vụ, cơ chế xác thực/phân quyền tại API, provider AI và extension cài chạy được vẫn cần triển khai. Bảng phiên/consent không tự cung cấp cơ chế kiểm tra quyền. Chỉ xử lý dữ liệu Portal sau cấp quyền; không thu mật khẩu/token Portal, không tự sửa điểm hay gửi comment. API key AI đặt ở backend. RAG phải giới hạn theo người dùng/môn và trích dẫn nguồn có thật; tính điểm dùng công thức và trọng số thực tế.

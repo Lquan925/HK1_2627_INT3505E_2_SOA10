@@ -12,15 +12,25 @@ Backend Flask tổ chức theo module nghiệp vụ tại `src/student_assistant
 | `comments/` | Gợi ý phản hồi (UC07) |
 | `recommendations/` | Gợi ý ôn tập (UC10) |
 
-Trong từng module: `api.py` nhận HTTP; `schemas.py` kiểm tra request/response; `service.py` xử lý nghiệp vụ; `repository.py` và `models.py` quản lý dữ liệu nếu module sở hữu dữ liệu. Document có thêm `vector_repository.py`. Comment/Recommendation tái sử dụng dữ liệu Quiz Review và Document.
+Trong từng module: `api.py` nhận HTTP; `schemas.py` kiểm tra request/response; `service.py` xử lý nghiệp vụ; `repository.py` và `models.py` quản lý dữ liệu nếu module sở hữu dữ liệu. Document có thêm `vector_repository.py`. Recommendation có model phân tích, bằng chứng, chủ đề và đề xuất; Comment tái sử dụng dữ liệu Quiz Review và không lưu bảng riêng.
 
 `api/__init__.py` đăng ký Blueprint; `factory.py` nạp model từ từng module để SQLAlchemy/Migrate thấy metadata. Các URL `/api/v1/...` giữ nguyên. `shared/validation.py` dành cho validation dùng chung; `integrations/` chứa client AI. Model dùng `db` từ `extensions.py`.
 
-Hiện các file là scaffold; chưa có route nghiệp vụ hay bảng dữ liệu. [OpenAPI](openapi/openapi_modular/openapi_modular/openapi.yaml) mô tả hợp đồng dự kiến, chưa phải các endpoint đã triển khai; các đường dẫn nghiệp vụ hiện trả 404. Xem [hướng dẫn bundle/lint](openapi/openapi_modular/openapi_modular/README.md) và [bảng chia việc](../docs/modules.md).
+Phần database đã có 18 model theo ERD, revision `0001_initial` và lệnh seed phát triển. Các route/service/repository nghiệp vụ, xác thực/phân quyền tại API và client AI vẫn là scaffold. [OpenAPI](openapi/openapi_modular/openapi_modular/openapi.yaml) mô tả hợp đồng dự kiến, chưa phải các endpoint đã triển khai; các đường dẫn nghiệp vụ hiện trả 404. Xem [hướng dẫn bundle/lint](openapi/openapi_modular/openapi_modular/README.md), [database](../docs/database.md) và [bảng chia việc](../docs/modules.md).
 
 ## Chạy bằng Docker
 
 Từ thư mục gốc repo, chạy `docker compose up --build -d`, sau đó mở `http://localhost:8000/docs/`. Compose khởi động backend bằng Waitress và PostgreSQL có pgvector. Không cần tạo môi trường Python trên máy. Xem [hướng dẫn Docker](../infrastructure/docker/README.md) để đổi cổng, chạy test và quản lý database.
+
+Áp dụng schema và tùy chọn thêm fixture phát triển từ thư mục gốc:
+
+```sh
+docker compose exec backend python -m flask --app wsgi:app db upgrade
+docker compose exec backend python -m flask --app wsgi:app db current
+docker compose exec backend python -m flask --app wsgi:app db-seed-demo
+```
+
+Seed chạy lại không ghi đè bản ghi hiện có. Dữ liệu mẫu gồm hai phiên/hai môn, consent, tài liệu `PENDING`, mục tiêu điểm và tin nhắn người dùng; không tạo embedding hoặc câu trả lời AI giả, không cung cấp token đăng nhập. Các ID mẫu cố định để thuận tiện kiểm thử database.
 
 ## Cài và khởi động Flask trực tiếp bằng Python
 
@@ -60,5 +70,9 @@ Kiểm tra phần tích hợp bằng lệnh sau từ thư mục `backend/`:
 ```
 
 Hướng dẫn migration tại [`migrations/README.md`](migrations/README.md). Chỉ thêm thông tin xác thực riêng của ứng dụng/AI provider vào `.env`; không thêm thông tin đăng nhập Portal.
+
+Khi chạy Python trực tiếp, dùng cùng các lệnh `python -m flask --app wsgi:app db upgrade`, `db current` và `db-seed-demo` từ `backend/` với môi trường ảo đã kích hoạt. PostgreSQL cần có pgvector trước khi dùng cột embedding. Chiều embedding chưa chốt nên hiện dùng `vector` không cố định D và chưa có ANN index; truy xuất phải lọc đúng model/chiều.
+
+UUID mặc định được SQLAlchemy sinh khi insert; SQL trực tiếp phải cung cấp ID. ORM cập nhật `updated_at` qua `onupdate`, còn SQL trực tiếp phải tự cập nhật trường này.
 
 Mẫu factory/extension dựa trên [Flask Application Factories](https://flask.palletsprojects.com/en/stable/patterns/appfactories/) và [Flask-Migrate](https://flask-migrate.readthedocs.io/en/latest/).

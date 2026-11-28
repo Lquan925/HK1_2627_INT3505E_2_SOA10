@@ -22,14 +22,18 @@ def create_app(config: dict | None = None) -> Flask:
 
     db.init_app(app)
 
-    # Import model modules so future model declarations enter db.metadata.
+    # Register all ERD tables before Alembic or the CLI accesses metadata.
     from .modules.auth import models as auth_models  # noqa: F401
     from .modules.chat import models as chat_models  # noqa: F401
     from .modules.documents import models as document_models  # noqa: F401
     from .modules.grade_planning import models as grade_models  # noqa: F401
     from .modules.quiz_review import models as quiz_models  # noqa: F401
+    from .modules.recommendations import models as recommendation_models  # noqa: F401
 
     migrate.init_app(app, db, directory="migrations")
     register_blueprints(app)
     register_api_docs(app)
+    from .seed import register_seed_commands
+
+    register_seed_commands(app)
     return app

@@ -51,3 +51,9 @@ Trọng tâm gồm đánh giá câu trắc nghiệm và tự luận theo rubric,
 - API có kiểm tra quyền dữ liệu và validation tương ứng; không trả kết quả giả để che phần chưa triển khai.
 - Có kiểm thử luồng chính và lỗi đặc thù của module khi đã có nghiệp vụ.
 - Hướng dẫn cách chạy và giới hạn còn lại; UI phân biệt kết quả AI với dữ liệu chính thức.
+
+## Trạng thái triển khai database
+
+Phần database đã có 18 model, migration `0001_initial` và seed phát triển; xem [database](database.md). Các chủ module bổ sung nghiệp vụ/repository trên model hiện có và phối hợp revision mới với người phụ trách nền tảng. Seed chạy lại giữ nguyên bản ghi hiện có, chưa tạo embedding hoặc câu trả lời AI.
+
+API nghiệp vụ, xác thực/phân quyền tại API, provider AI và Extension cài chạy được vẫn cần triển khai. Database không tự thực hiện kiểm tra token, consent hiện hành hoặc quyền Portal. Chiều vector và provider embedding cần được nhóm chốt trước khi thêm ANN index.
